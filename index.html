@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>NG Data Conversion Pipeline — Control Panel</title>
+        <meta
+            name="description"
+            content="Orchestration and monitoring control panel for the NG Data Conversion Pipeline backend."
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="/static/style.css" />
+    </head>
+    <body>
+        <div class="enclosure">
+            <!-- ═══════════════════════════════════════════════════
+         HEADER  —  Brushed Aluminium Nameplate
+         ═══════════════════════════════════════════════════ -->
+            <header class="ctrl-header" id="top">
+                <div class="header-left">
+                    <div class="rivet-row">
+                        <span class="rivet"></span>
+                        <span class="rivet"></span>
+                    </div>
+                    <div class="led-cluster">
+                        <span class="led led-red" title="System Ready"></span>
+                        <span
+                            class="led led-amber"
+                            title="Pipeline Active"
+                        ></span>
+                        <span
+                            class="led led-green pulse"
+                            title="API Online"
+                        ></span>
+                    </div>
+                </div>
+
+                <div class="header-center">
+                    <h1 class="unit-title">NG Data Conversion Pipeline</h1>
+                    <p class="unit-subtitle">
+                        ORCHESTRATION &amp; MONITORING CONTROL SYSTEM
+                        &nbsp;·&nbsp; v1.0.0
+                    </p>
+                </div>
+
+                <div class="header-right">
+                    <div class="led-cluster">
+                        <span
+                            class="led led-green pulse"
+                            title="API Online"
+                        ></span>
+                        <span
+                            class="led led-amber"
+                            title="Pipeline Active"
+                        ></span>
+                        <span class="led led-red" title="System Ready"></span>
+                    </div>
+                    <div class="rivet-row">
+                        <span class="rivet"></span>
+                        <span class="rivet"></span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- ═══════════════════════════════════════════════════
+         SERVER STATUS ROW
+         ═══════════════════════════════════════════════════ -->
+            <section class="status-row" aria-label="Server Status">
+                <!-- Raw Server -->
+                <div class="srv-card" id="card-raw">
+                    <div class="srv-inset">
+                        <div class="srv-badge">RAW DATA SERVER</div>
+                        <div class="srv-led-wrap">
+                            <span
+                                class="led-xl led-green pulse"
+                                title="Online"
+                            ></span>
+                            <div class="led-glow-ring green-ring"></div>
+                        </div>
+                        <div class="srv-host">
+                            172.20.23.241<span class="srv-port">:10228</span>
+                        </div>
+                        <div class="srv-desc">Unconverted Source Files</div>
+                        <a
+                            href="http://172.20.23.241:10228/"
+                            target="_blank"
+                            rel="noopener"
+                            class="srv-btn"
+                            id="btn-raw-server"
+                        >
+                            ↗ BROWSE SERVER
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Flow Arrow -->
+                <div class="flow-connector" aria-hidden="true">
+                    <div class="flow-line"></div>
+                    <div class="flow-arrow">&#9658;</div>
+                    <div class="flow-tag">PIPELINE</div>
+                    <div class="flow-arrow">&#9658;</div>
+                    <div class="flow-line"></div>
+                </div>
+
+                <!-- API Server -->
+                <div class="srv-card srv-card--api" id="card-api">
+                    <div class="srv-inset">
+                        <div class="srv-badge">PIPELINE API</div>
+                        <div class="srv-led-wrap">
+                            <span
+                                class="led-xl led-blue pulse"
+                                title="Online"
+                            ></span>
+                            <div class="led-glow-ring blue-ring"></div>
+                        </div>
+                        <div class="srv-host">
+                            http://172.20.23.217<span class="srv-port"
+                                >:10303</span
+                            >
+                        </div>
+                        <div class="srv-desc">
+                            FastAPI Orchestration Backend
+                        </div>
+                        <a
+                            href="http://172.20.23.217:10303/health"
+                            target="_blank"
+                            rel="noopener"
+                            class="srv-btn"
+                            id="btn-health"
+                        >
+                            ↗ HEALTH CHECK
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Flow Arrow -->
+                <div class="flow-connector" aria-hidden="true">
+                    <div class="flow-line"></div>
+                    <div class="flow-arrow">&#9658;</div>
+                    <div class="flow-tag">OUTPUT</div>
+                    <div class="flow-arrow">&#9658;</div>
+                    <div class="flow-line"></div>
+                </div>
+
+                <!-- Converted Server -->
+                <div class="srv-card" id="card-converted">
+                    <div class="srv-inset">
+                        <div class="srv-badge">CONVERTED DATA SERVER</div>
+                        <div class="srv-led-wrap">
+                            <span
+                                class="led-xl led-green pulse"
+                                title="Online"
+                            ></span>
+                            <div class="led-glow-ring green-ring"></div>
+                        </div>
+                        <div class="srv-host">
+                            172.20.23.241<span class="srv-port">:10229</span>
+                        </div>
+                        <div class="srv-desc">OME-Zarr Output Files</div>
+                        <a
+                            href="http://172.20.23.241:10229/"
+                            target="_blank"
+                            rel="noopener"
+                            class="srv-btn"
+                            id="btn-converted-server"
+                        >
+                            ↗ BROWSE SERVER
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════════
+         DUAL FILE MONITORS
+         ═══════════════════════════════════════════════════ -->
+            <section class="monitor-row" aria-label="File Monitors">
+                <!-- Raw Files Monitor -->
+                <div class="monitor" id="monitor-raw">
+                    <div class="monitor-bezel">
+                        <div class="monitor-topbar">
+                            <span class="monitor-dot red"></span>
+                            <span class="monitor-dot amber"></span>
+                            <span class="monitor-dot green"></span>
+                            <span class="monitor-channel"
+                                >RAW FILES &nbsp;—&nbsp;
+                                <code>GET /api/files/raw</code></span
+                            >
+                        </div>
+                        <div class="screen-wrap">
+                            <div class="scanlines" aria-hidden="true"></div>
+                            <div class="glare" aria-hidden="true"></div>
+                            <iframe
+                                id="frame-raw"
+                                src="http://172.20.23.217:10303/api/files/raw"
+                                title="Raw Files Live Feed"
+                                loading="lazy"
+                            >
+                            </iframe>
+                        </div>
+                        <div class="monitor-footer">
+                            <span class="live-indicator">
+                                <span class="blink-dot"></span> LIVE
+                            </span>
+                            <span class="monitor-info"
+                                >Unconverted files on raw server</span
+                            >
+                            <a
+                                href="http://172.20.23.217:10303/api/files/raw"
+                                target="_blank"
+                                rel="noopener"
+                                class="small-btn"
+                                id="btn-open-raw"
+                                >↗ OPEN</a
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Converted Files Monitor -->
+                <div class="monitor" id="monitor-converted">
+                    <div class="monitor-bezel">
+                        <div class="monitor-topbar">
+                            <span class="monitor-dot red"></span>
+                            <span class="monitor-dot amber"></span>
+                            <span class="monitor-dot green"></span>
+                            <span class="monitor-channel"
+                                >CONVERTED FILES &nbsp;—&nbsp;
+                                <code>GET /api/files/converted</code></span
+                            >
+                        </div>
+                        <div class="screen-wrap">
+                            <div class="scanlines" aria-hidden="true"></div>
+                            <div class="glare" aria-hidden="true"></div>
+                            <iframe
+                                id="frame-converted"
+                                src="http://172.20.23.217:10303/api/files/converted"
+                                title="Converted Files Live Feed"
+                                loading="lazy"
+                            >
+                            </iframe>
+                        </div>
+                        <div class="monitor-footer">
+                            <span class="live-indicator">
+                                <span class="blink-dot"></span> LIVE
+                            </span>
+                            <span class="monitor-info"
+                                >OME-Zarr files on converted server</span
+                            >
+                            <a
+                                href="http://172.20.23.217:10303/api/files/converted"
+                                target="_blank"
+                                rel="noopener"
+                                class="small-btn"
+                                id="btn-open-converted"
+                                >↗ OPEN</a
+                            >
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════════
+         STATUS OVERVIEW MONITOR  (full width)
+         ═══════════════════════════════════════════════════ -->
+            <section
+                class="status-monitor-row"
+                aria-label="Pipeline Status Overview"
+            >
+                <div class="monitor monitor--wide" id="monitor-status">
+                    <div class="monitor-bezel">
+                        <div class="monitor-topbar">
+                            <span class="monitor-dot red"></span>
+                            <span class="monitor-dot amber"></span>
+                            <span class="monitor-dot green"></span>
+                            <span class="monitor-channel"
+                                >PIPELINE STATUS OVERVIEW &nbsp;—&nbsp;
+                                <code>GET /api/files/status</code></span
+                            >
+                        </div>
+                        <div class="screen-wrap screen-wrap--tall">
+                            <div class="scanlines" aria-hidden="true"></div>
+                            <div class="glare" aria-hidden="true"></div>
+                            <iframe
+                                id="frame-status"
+                                src="http://172.20.23.217:10303/api/files/status"
+                                title="Pipeline Status Overview"
+                                loading="lazy"
+                            >
+                            </iframe>
+                        </div>
+                        <div class="monitor-footer">
+                            <span class="live-indicator">
+                                <span class="blink-dot"></span> LIVE
+                            </span>
+                            <span class="monitor-info"
+                                >Shows <em>converted</em> /
+                                <em>pending_conversion</em> status for every raw
+                                file</span
+                            >
+                            <a
+                                href="http://172.20.23.217:10303/api/files/status"
+                                target="_blank"
+                                rel="noopener"
+                                class="small-btn"
+                                id="btn-open-status"
+                                >↗ OPEN</a
+                            >
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════════
+         BOTTOM ROW  —  Convert Station  +  API Console
+         ═══════════════════════════════════════════════════ -->
+            <section
+                class="bottom-row"
+                aria-label="Conversion Controls and API Console"
+            >
+                <!-- ─── Convert Control Station ─── -->
+                <div class="ctrl-station" id="convert-station">
+                    <div class="station-nameplate">
+                        CONVERSION CONTROL STATION
+                    </div>
+
+                    <div class="station-body">
+                        <!-- LCD Display showing endpoint pattern -->
+                        <div class="lcd-panel">
+                            <div class="lcd-label">TARGET ENDPOINT</div>
+                            <div class="lcd-screen" id="lcd-endpoint">
+                                POST &nbsp;/api/convert/<span class="lcd-var"
+                                    >{filename}</span
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Example readout -->
+                        <div class="readout-panel">
+                            <div class="readout-row">
+                                <span class="readout-key">EXAMPLE FILE</span>
+                                <span class="readout-val"
+                                    >142_2dwarp_img_4mpp_new.raw</span
+                                >
+                            </div>
+                            <div class="readout-row">
+                                <span class="readout-key">NHDR AUTO-READ</span>
+                                <span class="readout-val green-val"
+                                    >&#10003; ENABLED</span
+                                >
+                            </div>
+                            <div class="readout-row">
+                                <span class="readout-key">RESPONSE CODE</span>
+                                <span class="readout-val">202 ACCEPTED</span>
+                            </div>
+                            <div class="readout-row">
+                                <span class="readout-key">PROCESSING</span>
+                                <span class="readout-val">BACKGROUND TASK</span>
+                            </div>
+                        </div>
+
+                        <!-- Metadata check button -->
+                        <a
+                            href="http://172.20.23.217:10303/api/files/metadata/142_2dwarp_img_4mpp_new.raw"
+                            target="_blank"
+                            rel="noopener"
+                            class="action-btn action-btn--blue"
+                            id="btn-metadata"
+                        >
+                            <span class="action-icon">&#128268;</span>
+                            <span class="action-label">
+                                CHECK NHDR METADATA
+                                <small
+                                    >Verify shape &amp; dtype before
+                                    converting</small
+                                >
+                            </span>
+                        </a>
+
+                        <!-- Open Swagger Convert Endpoint -->
+                        <a
+                            href="http://172.20.23.217:10303/docs#/Conversion/trigger_conversion_api_convert__filename__post"
+                            target="_blank"
+                            rel="noopener"
+                            class="action-btn action-btn--green"
+                            id="btn-convert-docs"
+                        >
+                            <span class="action-icon">&#9881;</span>
+                            <span class="action-label">
+                                TRIGGER CONVERSION
+                                <small
+                                    >Opens interactive Swagger UI for
+                                    POST</small
+                                >
+                            </span>
+                        </a>
+
+                        <div class="nhdr-callout">
+                            <span class="callout-icon">&#9432;</span>
+                            <span
+                                >Shape &amp; dtype are parsed automatically from
+                                the paired
+                                <strong class="nhdr-ext">.nhdr</strong> file —
+                                no manual config required.</span
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─── API Endpoint Console ─── -->
+                <div class="api-console" id="api-console">
+                    <div class="station-nameplate">API ENDPOINT CONSOLE</div>
+
+                    <div class="console-body">
+                        <!-- GET raw -->
+                        <a
+                            href="http://172.20.23.217:10303/api/files/raw"
+                            target="_blank"
+                            rel="noopener"
+                            class="ep-btn ep-get"
+                            id="ep-raw"
+                        >
+                            <span class="ep-method">GET</span>
+                            <span class="ep-path">/api/files/raw</span>
+                            <span class="ep-desc"
+                                >List all raw source files</span
+                            >
+                        </a>
+
+                        <!-- GET converted -->
+                        <a
+                            href="http://172.20.23.217:10303/api/files/converted"
+                            target="_blank"
+                            rel="noopener"
+                            class="ep-btn ep-get"
+                            id="ep-converted"
+                        >
+                            <span class="ep-method">GET</span>
+                            <span class="ep-path">/api/files/converted</span>
+                            <span class="ep-desc"
+                                >List all converted output files</span
+                            >
+                        </a>
+
+                        <!-- GET status -->
+                        <a
+                            href="http://172.20.23.217:10303/api/files/status"
+                            target="_blank"
+                            rel="noopener"
+                            class="ep-btn ep-get"
+                            id="ep-status"
+                        >
+                            <span class="ep-method">GET</span>
+                            <span class="ep-path">/api/files/status</span>
+                            <span class="ep-desc"
+                                >Cross-server conversion status</span
+                            >
+                        </a>
+
+                        <!-- GET metadata -->
+                        <a
+                            href="http://172.20.23.217:10303/api/files/metadata/142_2dwarp_img_4mpp_new.raw"
+                            target="_blank"
+                            rel="noopener"
+                            class="ep-btn ep-get"
+                            id="ep-metadata"
+                        >
+                            <span class="ep-method">GET</span>
+                            <span class="ep-path"
+                                >/api/files/metadata/{filename}</span
+                            >
+                            <span class="ep-desc"
+                                >Parse NHDR — returns shape, dtype,
+                                encoding</span
+                            >
+                        </a>
+
+                        <!-- POST convert -->
+                        <a
+                            href="http://172.20.23.217:10303/docs#/Conversion/trigger_conversion_api_convert__filename__post"
+                            target="_blank"
+                            rel="noopener"
+                            class="ep-btn ep-post"
+                            id="ep-convert"
+                        >
+                            <span class="ep-method ep-method--post">POST</span>
+                            <span class="ep-path">/api/convert/{filename}</span>
+                            <span class="ep-desc"
+                                >Trigger background OME-Zarr conversion</span
+                            >
+                        </a>
+
+                        <!-- GET health -->
+                        <a
+                            href="http://172.20.23.217:10303/health"
+                            target="_blank"
+                            rel="noopener"
+                            class="ep-btn ep-health"
+                            id="ep-health"
+                        >
+                            <span class="ep-method ep-method--health">GET</span>
+                            <span class="ep-path">/health</span>
+                            <span class="ep-desc"
+                                >Liveness probe — returns 200 OK</span
+                            >
+                        </a>
+
+                        <!-- Swagger Docs (full width) -->
+                        <a
+                            href="http://172.20.23.217:10303/docs"
+                            target="_blank"
+                            rel="noopener"
+                            class="ep-btn ep-docs ep-full"
+                            id="ep-docs"
+                        >
+                            <span class="ep-method ep-method--docs">DOC</span>
+                            <span class="ep-path"
+                                >/docs &nbsp;—&nbsp; Swagger UI</span
+                            >
+                            <span class="ep-desc"
+                                >Full interactive API documentation &amp;
+                                testing console</span
+                            >
+                        </a>
+
+                        <!-- ReDoc -->
+                        <a
+                            href="http://172.20.23.217:10303/redoc"
+                            target="_blank"
+                            rel="noopener"
+                            class="ep-btn ep-docs ep-full"
+                            id="ep-redoc"
+                        >
+                            <span class="ep-method ep-method--docs">DOC</span>
+                            <span class="ep-path"
+                                >/redoc &nbsp;—&nbsp; ReDoc UI</span
+                            >
+                            <span class="ep-desc"
+                                >Alternative API reference documentation</span
+                            >
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════════
+         FOOTER
+         ═══════════════════════════════════════════════════ -->
+            <footer class="panel-footer">
+                <div class="footer-rivets">
+                    <span class="rivet"></span>
+                    <span class="rivet"></span>
+                    <span class="rivet"></span>
+                </div>
+                <div class="footer-text">
+                    NG DATA CONVERSION PIPELINE &nbsp;·&nbsp; CONTROL PANEL
+                    v1.0.0 &nbsp;·&nbsp; FastAPI 0.136 &nbsp;·&nbsp; Python 3.10
+                    &nbsp;·&nbsp; uvicorn :8003
+                </div>
+                <div class="footer-rivets">
+                    <span class="rivet"></span>
+                    <span class="rivet"></span>
+                    <span class="rivet"></span>
+                </div>
+            </footer>
+        </div>
+        <!-- /enclosure -->
+    </body>
+</html>

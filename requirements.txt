@@ -1,0 +1,19 @@
+# NG Data Conversion Pipeline — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# --- FastAPI Backend ---
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+httpx>=0.27.0
+beautifulsoup4>=4.12.3
+pydantic>=2.7.0
+
+# --- Conversion Pipeline (raw_converter.py) ---
+numpy>=1.26.0
+dask[array]>=2024.1.0
+zarr>=2.18.0
+ome-zarr>=0.9.0
+
+# --- Optional but recommended for production ---
+# gunicorn>=22.0.0        # Multi-worker WSGI/ASGI server
+# python-dotenv>=1.0.0    # Load config from .env file
