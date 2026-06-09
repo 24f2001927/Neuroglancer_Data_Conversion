@@ -51,12 +51,12 @@ Key capabilities:
 
 ```mermaid
 graph TB
-    subgraph CLIENTS["👥 Clients"]
-        UI["🖥️ Control Panel UI<br/>(index.html + style.css)<br/>Pure HTML/CSS — No JS"]
-        DEV["🧑‍💻 Developer / Curl / Swagger"]
+    subgraph CLIENTS["Clients"]
+        UI["Control Panel UI<br/>(index.html + style.css)<br/>Pure HTML/CSS — No JS"]
+        DEV["Developer / Curl / Swagger"]
     end
 
-    subgraph API["⚙️ Pipeline API  ·  172.20.23.217:10302"]
+    subgraph API["Pipeline API  ·  172.20.23.217:10302"]
         direction TB
         FASTAPI["FastAPI Application<br/>(main.py)"]
         CORS["CORS Middleware<br/>allow_origins: *"]
@@ -67,15 +67,15 @@ graph TB
         MODELS["Pydantic Models<br/>RawFilesResponse<br/>ConvertedFilesResponse<br/>FileStatusEntry<br/>NhdrMetadata<br/>ConversionTriggerResponse"]
     end
 
-    subgraph RAW_SERVER["📁 Raw Data Server  ·  172.20.23.241:10228"]
+    subgraph RAW_SERVER["Raw Data Server  ·  172.20.23.241:10228"]
         RAW_DIR["HTTP Directory Index<br/>.raw + .nhdr file pairs"]
     end
 
-    subgraph CONV_SERVER["✅ Converted Data Server  ·  172.20.23.241:10229"]
+    subgraph CONV_SERVER["Converted Data Server  ·  172.20.23.241:10229"]
         ZARR_DIR["HTTP Directory Index<br/>.zarr OME-Zarr stores"]
     end
 
-    subgraph LOCAL_FS["💾 Local Filesystem"]
+    subgraph LOCAL_FS["Local Filesystem"]
         RAW_FILES["RAW_FILES_DIR<br/>/home/tahmeed/nvIndexViewer/brainStem<br/>*.raw  *.nhdr"]
         OUT_DIR["OUTPUT_ZARR_DIR<br/>/home/tahmeed/nvIndexViewer/converted<br/>*.zarr"]
         SCRIPT["raw_converter.py<br/>NHDR parser + OME-Zarr writer"]
@@ -108,12 +108,12 @@ graph TB
 
 ```mermaid
 flowchart TD
-    A(["🚀 POST /api/convert/{filename}"])
+    A(["POST /api/convert/{filename}"])
     B["Resolve paths\ninput  = RAW_FILES_DIR/filename\noutput = OUTPUT_ZARR_DIR/stem.zarr\nnhdr   = RAW_FILES_DIR/stem.nhdr"]
     C{"nhdr file\nexists?"}
     D["Log WARNING:\nno .nhdr found — may fail"]
     E["Return 202 Accepted\nimmediately to client\nnhdr_found · input_path · output_path"]
-    F(["🔄 Background Thread starts"])
+    F(["Background Thread starts"])
     G["Locate paired .nhdr file\nsame directory, same stem"]
     H["Parse NHDR Header\n─────────────────\ntype  → numpy dtype\nsizes X,Y,Z → shape Z,Y,X\nencoding, data_file fields"]
     I{"shape & dtype\nresolved?"}
@@ -124,9 +124,9 @@ flowchart TD
     N["zarr.storage.LocalStore\nCreate .zarr directory"]
     O["ome_zarr Scaler\nmax_layer=4  method='nearest'\nBuilds multiresolution pyramid"]
     P["write_image\nWrite all pyramid levels\naxes='zyx'"]
-    Q(["✅ Conversion Complete\nLog SUCCESS + stdout"])
-    R(["❌ Conversion Failed\nLog ERROR + stderr + exit code"])
-    TIMEOUT(["⏰ Timeout\nLog TIMEOUT after 3600s"])
+    Q(["Conversion Complete\nLog SUCCESS + stdout"])
+    R(["Conversion Failed\nLog ERROR + stderr + exit code"])
+    TIMEOUT(["Timeout\nLog TIMEOUT after 3600s"])
 
     A --> B --> C
     C -- No --> D --> E
