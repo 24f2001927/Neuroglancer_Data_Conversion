@@ -234,6 +234,243 @@
       transform: translateY(1px);
       box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
     }
+
+    /* ═══════════════════════════════════════════════════
+       LIVE CONVERSION MONITOR
+       ═══════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════
+       LIVE CONVERSION MONITOR (Premium Hardware)
+       ═══════════════════════════════════════════════════ */
+    .conv-monitor {
+      background: linear-gradient(to bottom, #2b2b2a, #1a1a19);
+      border: 1px solid #0f0f0f;
+      border-radius: 8px;
+      padding: 6px;
+      box-shadow: 
+        0 8px 30px rgba(0, 0, 0, 0.9),
+        inset 0 2px 2px rgba(255, 255, 255, 0.1),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.8),
+        0 0 0 1px #333;
+      display: none;
+      flex-direction: column;
+      position: relative;
+    }
+    .conv-monitor.active {
+      display: flex;
+      animation: monitorSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes monitorSlideIn {
+      from { opacity: 0; transform: translateY(-15px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Nameplate strip */
+    .conv-monitor-nameplate {
+      background: linear-gradient(180deg, #1c1a15, #11100b);
+      border-radius: 4px 4px 0 0;
+      border-bottom: 2px solid #0a0905;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: inset 0 1px 1px rgba(255, 220, 100, 0.05);
+    }
+    .conv-nameplate-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .conv-monitor-title {
+      font-family: var(--font-title);
+      font-size: 0.75rem;
+      letter-spacing: 0.25em;
+      color: #ffcc00;
+      text-shadow: 0 0 10px rgba(255, 170, 0, 0.6), 0 0 20px rgba(255, 170, 0, 0.3);
+    }
+    .conv-elapsed {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #a3a3a3;
+      letter-spacing: 0.1em;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px 8px;
+      border-radius: 3px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
+      border: 1px solid #222;
+    }
+    .conv-poll-badge {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: #666;
+      letter-spacing: 0.15em;
+    }
+
+    /* Main body - CRT Screen effect */
+    .conv-monitor-body {
+      background: #080806;
+      background-image: 
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 1px,
+          rgba(255, 200, 0, 0.03) 1px,
+          rgba(255, 200, 0, 0.03) 2px
+        );
+      border-radius: 0 0 4px 4px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 
+        inset 0 4px 15px rgba(0, 0, 0, 0.9),
+        inset 0 -2px 10px rgba(0, 0, 0, 0.7),
+        0 1px 0 rgba(255, 255, 255, 0.05);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    /* Subtle screen glare */
+    .conv-monitor-body::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 30%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* Progress bar */
+    .conv-progress-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    .conv-phase-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: #ffb700;
+      letter-spacing: 0.15em;
+      text-shadow: 0 0 8px rgba(255, 183, 0, 0.4);
+    }
+    .conv-progress-track {
+      height: 8px;
+      background: #0f0d05;
+      border-radius: 4px;
+      border: 1px solid #241c00;
+      overflow: hidden;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.9), 0 1px 0 rgba(255,255,255,0.03);
+    }
+    .conv-progress-bar {
+      height: 100%;
+      width: 40%;
+      background: repeating-linear-gradient(
+        -45deg,
+        #ffaa00,
+        #ffaa00 8px,
+        #ffcc33 8px,
+        #ffcc33 16px
+      );
+      background-size: 32px 100%;
+      border-radius: 3px;
+      box-shadow: 0 0 10px rgba(255, 170, 0, 0.8), inset 0 0 3px rgba(255, 255, 255, 0.5);
+      animation: convSweepStripes 1s linear infinite, convSweepMove 3s ease-in-out infinite alternate;
+    }
+    
+    @keyframes convSweepStripes {
+      0%   { background-position: 0 0; }
+      100% { background-position: 32px 0; }
+    }
+    @keyframes convSweepMove {
+      0%   { margin-left: 0%; width: 30%; }
+      100% { margin-left: 70%; width: 30%; }
+    }
+
+    /* File rows */
+    .conv-file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    .conv-file-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(90deg, rgba(20, 18, 5, 0.8), rgba(10, 9, 0, 0.9));
+      border: 1px solid #2a2205;
+      border-left: 3px solid #ffaa00;
+      border-radius: 4px;
+      padding: 8px 14px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+    .conv-file-name {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #e6c86e;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 0 2px rgba(230, 200, 110, 0.2);
+    }
+    .conv-file-status {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: #cc8800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 2px 6px;
+      border-radius: 2px;
+      border: 1px solid #332200;
+    }
+
+    /* Idle (all converted) state */
+    .conv-monitor-idle {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--clr-green);
+      letter-spacing: 0.15em;
+      text-shadow: 0 0 8px var(--clr-green-glow);
+      padding: 10px;
+      background: rgba(0, 255, 100, 0.02);
+      border: 1px solid rgba(0, 255, 100, 0.1);
+      border-radius: 4px;
+    }
+
+    /* Pending-queue (files waiting, nothing running yet) state */
+    .conv-monitor-pending {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #a88b32;
+      letter-spacing: 0.15em;
+      padding: 10px;
+      background: rgba(255, 200, 0, 0.02);
+      border: 1px solid rgba(255, 200, 0, 0.1);
+      border-radius: 4px;
+    }
+
+    /* Pending file row variant */
+    .conv-file-row--pending {
+      border-left: 3px solid #665522;
+      background: linear-gradient(90deg, rgba(15, 15, 10, 0.8), rgba(10, 10, 5, 0.9));
+      border-color: #1a1a15;
+    }
+    .conv-file-row--pending .conv-file-name { color: #998866; }
+    .conv-file-row--pending .conv-file-status { color: #665522; border-color: #222; }
+    
+    /* Converted file row variant (applied via JS, but we can target the inline styles implicitly or structurally, or add a class. Since JS adds inline styles, we'll keep it as is, but we can enhance the base class if needed) */
+
   </style>
 </head>
 <body>
@@ -389,6 +626,53 @@
           </div>
 
         </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         LIVE CONVERSION MONITOR
+         ═══════════════════════════════════════════════════ -->
+    <section id="conv-monitor-section" class="conv-monitor" aria-label="Live Conversion Monitor">
+
+      <!-- Nameplate strip -->
+      <div class="conv-monitor-nameplate">
+        <div class="conv-nameplate-left">
+          <span class="led led-amber pulse" id="conv-led"></span>
+          <span class="conv-monitor-title">LIVE CONVERSION MONITOR</span>
+          <span class="blink-dot" id="conv-blink"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;">
+          <span class="conv-elapsed" id="conv-elapsed">ELAPSED: 00:00:00</span>
+          <span class="conv-poll-badge" id="conv-poll-badge">POLLING 10s</span>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="conv-monitor-body">
+
+        <!-- Progress (only shown when actively converting) -->
+        <div class="conv-progress-wrap" id="conv-active-block">
+          <span class="conv-phase-label" id="conv-phase">▶ INITIALISING...</span>
+          <div class="conv-progress-track">
+            <div class="conv-progress-bar"></div>
+          </div>
+        </div>
+
+        <!-- Pending queue (files waiting, nothing running yet) -->
+        <div class="conv-monitor-pending" id="conv-pending-block" style="display:none;">
+          <span class="led led-amber" style="opacity:0.5;"></span>
+          FILES QUEUED &nbsp;—&nbsp; AWAITING CONVERSION TRIGGER
+        </div>
+
+        <!-- Idle (all converted) state -->
+        <div class="conv-monitor-idle" id="conv-idle-block" style="display:none;">
+          <span class="led led-green pulse"></span>
+          ALL FILES CONVERTED &nbsp;—&nbsp; PIPELINE IDLE
+        </div>
+
+        <!-- File rows -->
+        <div class="conv-file-list" id="conv-file-list"></div>
+
       </div>
     </section>
 
@@ -716,6 +1000,164 @@
     pipeInfoModal.addEventListener('click', (e) => {
       if (e.target === pipeInfoModal) togglePipeModal(false);
     });
+
+    // ─────────────────────────────────────────────────────────
+    // LIVE CONVERSION MONITOR
+    // ─────────────────────────────────────────────────────────
+    const STATUS_API = 'http://172.20.23.217:10302/api/files/status';
+    const POLL_INTERVAL_MS = 10000;
+
+    const PHASES = [
+      '▶ NHDR SIDECAR DOWNLOAD',
+      '▶ RAW FILE STREAMING',
+      '▶ OME-ZARR WRITE',
+      '▶ PYRAMID LEVELS BUILD',
+      '▶ CHUNK MATRIX COMPUTE',
+      '▶ FINALISING OUTPUT',
+    ];
+
+    let monitorStartTime = null;
+    let elapsedTimer     = null;
+    let phaseTimer       = null;
+    let phaseIndex       = 0;
+
+    function formatElapsed(ms) {
+      const s   = Math.floor(ms / 1000);
+      const h   = String(Math.floor(s / 3600)).padStart(2, '0');
+      const m   = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+      const sec = String(s % 60).padStart(2, '0');
+      return `ELAPSED: ${h}:${m}:${sec}`;
+    }
+
+    function startElapsedClock() {
+      if (elapsedTimer) return;
+      monitorStartTime = Date.now();
+      elapsedTimer = setInterval(() => {
+        document.getElementById('conv-elapsed').textContent =
+          formatElapsed(Date.now() - monitorStartTime);
+      }, 1000);
+    }
+
+    function stopElapsedClock() {
+      clearInterval(elapsedTimer);
+      elapsedTimer = null;
+      document.getElementById('conv-elapsed').textContent = 'ELAPSED: --:--:--';
+    }
+
+    function startPhaseRotation() {
+      if (phaseTimer) return;
+      phaseIndex = 0;
+      document.getElementById('conv-phase').textContent = PHASES[0];
+      phaseTimer = setInterval(() => {
+        phaseIndex = (phaseIndex + 1) % PHASES.length;
+        document.getElementById('conv-phase').textContent = PHASES[phaseIndex];
+      }, 7000);
+    }
+
+    function stopPhaseRotation() {
+      clearInterval(phaseTimer);
+      phaseTimer = null;
+    }
+
+    // Renders three distinct file-row types: converting / pending / converted
+    function renderFileRows(converting, pending, converted) {
+      const list = document.getElementById('conv-file-list');
+      list.innerHTML = '';
+
+      // ── CONVERTING  (amber blink, progress label) ──
+      converting.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'conv-file-row';
+        row.innerHTML = `
+          <span class="blink-dot"></span>
+          <span class="conv-file-name">${f.filename}</span>
+          <span class="conv-file-status">CONVERTING</span>`;
+        list.appendChild(row);
+      });
+
+      // ── PENDING  (static grey, queued but not running) ──
+      pending.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'conv-file-row conv-file-row--pending';
+        row.style.borderColor = '#1a1500';
+        row.innerHTML = `
+          <span style="color:#443300;font-size:0.7rem;">⏳</span>
+          <span class="conv-file-name">${f.filename}</span>
+          <span class="conv-file-status">QUEUED</span>`;
+        list.appendChild(row);
+      });
+
+      // ── CONVERTED  (green checkmark) ──
+      converted.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'conv-file-row';
+        row.style.borderColor = '#0a1f0a';
+        row.style.borderLeft = '3px solid var(--clr-green)';
+        row.innerHTML = `
+          <span style="color:var(--clr-green);font-size:0.65rem;">✔</span>
+          <span class="conv-file-name" style="color:#44aa66; text-shadow: 0 0 2px rgba(68,170,102,0.3);">${f.filename}</span>
+          <span class="conv-file-status" style="color:var(--clr-green); border-color:#0a2f0a; background:rgba(0,255,0,0.05);">CONVERTED</span>`;
+        list.appendChild(row);
+      });
+    }
+
+    async function pollConversionStatus() {
+      const section       = document.getElementById('conv-monitor-section');
+      const activeBlock   = document.getElementById('conv-active-block');
+      const pendingBlock  = document.getElementById('conv-pending-block');
+      const idleBlock     = document.getElementById('conv-idle-block');
+      const pollBadge     = document.getElementById('conv-poll-badge');
+
+      try {
+        const res  = await fetch(STATUS_API);
+        const data = await res.json();
+
+        // Separate all three statuses from the API
+        const converting = data.filter(f => f.status === 'converting');
+        const pending    = data.filter(f => f.status === 'pending_conversion');
+        const converted  = data.filter(f => f.status === 'converted');
+
+        // Always reveal the monitor once we have real data
+        section.classList.add('active');
+
+        if (converting.length > 0) {
+          // ── STATE 1: Active conversion in progress ──
+          activeBlock.style.display  = 'flex';
+          pendingBlock.style.display = 'none';
+          idleBlock.style.display    = 'none';
+          startElapsedClock();
+          startPhaseRotation();
+          pollBadge.textContent = 'POLLING 10s';
+
+        } else if (pending.length > 0) {
+          // ── STATE 2: Files queued but nothing running yet ──
+          activeBlock.style.display  = 'none';
+          pendingBlock.style.display = 'flex';
+          idleBlock.style.display    = 'none';
+          stopElapsedClock();
+          stopPhaseRotation();
+          pollBadge.textContent = 'POLLING 10s';
+
+        } else {
+          // ── STATE 3: All converted, pipeline idle ──
+          activeBlock.style.display  = 'none';
+          pendingBlock.style.display = 'none';
+          idleBlock.style.display    = 'flex';
+          stopElapsedClock();
+          stopPhaseRotation();
+          pollBadge.textContent = 'POLLING 30s';
+        }
+
+        renderFileRows(converting, pending, converted);
+
+      } catch (err) {
+        document.getElementById('conv-poll-badge').textContent = 'API OFFLINE';
+      }
+    }
+
+    // Initial poll + recurring interval
+    pollConversionStatus();
+    setInterval(pollConversionStatus, POLL_INTERVAL_MS);
   </script>
 </body>
 </html>

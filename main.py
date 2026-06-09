@@ -15,6 +15,7 @@ Run with:
 import logging
 import os
 import subprocess
+import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -61,6 +62,36 @@ PYRAMID_LEVELS = 4
 # Request timeout for fetching remote directory listings (seconds).
 # Note: .raw file downloads use a separate streaming client with no timeout.
 HTTP_TIMEOUT = 10.0
+
+# ---------------------------------------------------------------------------
+# In-memory active conversion tracker (thread-safe)
+# Populated when a background conversion starts; cleared when it finishes.
+# Used by /api/files/status to return 'converting' for in-flight files.
+# ---------------------------------------------------------------------------
+_active_conversions: set = set()
+_active_conversions_lock = threading.Lock()
+
+# ---------------------------------------------------------------------------
+# Raw-files list cache
+# Keeps the last successful directory listing from the Raw Data Server so that
+# /api/files/raw and /api/files/status remain functional even when the server
+# is too busy to respond (e.g. while streaming a large .raw download).
+# ---------------------------------------------------------------------------
+_raw_files_cache: List[str] = []
+_raw_files_cache_lock = threading.Lock()
+
+
+def _update_raw_files_cache(files: List[str]) -> None:
+    """Overwrite the cache with a fresh file list (thread-safe)."""
+    with _raw_files_cache_lock:
+        global _raw_files_cache
+        _raw_files_cache = list(files)
+
+
+def _get_raw_files_cache() -> List[str]:
+    """Return a copy of the cached file list (thread-safe)."""
+    with _raw_files_cache_lock:
+        return list(_raw_files_cache)
 
 # ---------------------------------------------------------------------------
 # NRRD dtype string → NumPy dtype  (mirrors raw_converter.py for API use)
@@ -127,7 +158,11 @@ class FileStatusEntry(BaseModel):
     filename: str = Field(..., description="The raw filename.")
     status: str = Field(
         ...,
-        description="'converted' if a matching file exists on the converted server, otherwise 'pending_conversion'.",
+        description=(
+            "'converted' if a matching .zarr exists on the converted server; "
+            "'converting' if a background conversion is currently running for this file; "
+            "'pending_conversion' if no conversion has been triggered yet."
+        ),
     )
     converted_url: Optional[str] = Field(
         None,
@@ -328,6 +363,20 @@ def _run_conversion(filename: str) -> None:
     nhdr_url    = f"{RAW_SERVER_URL.rstrip('/')}/{stem}.nhdr"
     output_path = os.path.join(OUTPUT_ZARR_DIR, f"{stem}.zarr")
 
+    # Mark as actively converting
+    with _active_conversions_lock:
+        _active_conversions.add(filename)
+
+    # Seed the raw-files cache with this file's name so that the /api/files/raw
+    # and /api/files/status endpoints still return useful data while the raw
+    # server is busy serving the large download.
+    nhdr_name = f"{stem}.nhdr"
+    with _raw_files_cache_lock:
+        if filename not in _raw_files_cache:
+            _raw_files_cache.append(filename)
+        if nhdr_name not in _raw_files_cache:
+            _raw_files_cache.append(nhdr_name)
+
     logger.info(
         "[CONVERSION] ▶  Starting: %s\n"
         "  source  → %s\n"
@@ -423,6 +472,9 @@ def _run_conversion(filename: str) -> None:
         # ── Step 4: Clean up temp dir (raw + nhdr) — keep the .zarr output ──
         shutil.rmtree(tmp_dir, ignore_errors=True)
         logger.info("[CONVERSION] Temp dir cleaned up: %s", tmp_dir)
+        # Unmark active conversion
+        with _active_conversions_lock:
+            _active_conversions.discard(filename)
 
 
 # ---------------------------------------------------------------------------
@@ -439,14 +491,42 @@ def _run_conversion(filename: str) -> None:
 async def list_raw_files() -> RawFilesResponse:
     """
     Fetches the directory listing from the **Raw Data Server** and returns
-    a list of filenames available for conversion.
+    only `.raw` and `.nhdr` files (other file types are excluded).
 
-    - **Returns**: `{"raw_files": ["file1.dat", ...]}`
-    - **Errors**: `502` if the raw server is unreachable.
+    Falls back to the last successful cached listing + any actively-converting
+    filenames when the raw server is temporarily unavailable (e.g. during a
+    large file download).
+
+    - **Returns**: `{"raw_files": ["file1.raw", "file1.nhdr", ...]}`
     """
-    files = await _fetch_file_list(RAW_SERVER_URL)
-    logger.info("Fetched %d raw file(s) from %s", len(files), RAW_SERVER_URL)
-    return RawFilesResponse(raw_files=files)
+    try:
+        files = await _fetch_file_list(RAW_SERVER_URL)
+        filtered = [f for f in files if f.lower().endswith(('.raw', '.nhdr'))]
+        _update_raw_files_cache(filtered)           # refresh cache on success
+        logger.info(
+            "Raw files: %d total → %d after filter (.raw/.nhdr) from %s",
+            len(files), len(filtered), RAW_SERVER_URL,
+        )
+        return RawFilesResponse(raw_files=filtered)
+
+    except HTTPException:
+        # Raw server busy (large download in progress) — serve from cache
+        cached = _get_raw_files_cache()
+        with _active_conversions_lock:
+            active = set(_active_conversions)
+
+        # Ensure every actively-converting file (+ its .nhdr) appears in result
+        extra: set = set()
+        for af in active:
+            extra.add(af)
+            extra.add(os.path.splitext(af)[0] + '.nhdr')
+
+        result = sorted(set(cached) | extra)
+        logger.warning(
+            "Raw server unavailable — serving %d cached + %d active files",
+            len(cached), len(active),
+        )
+        return RawFilesResponse(raw_files=result)
 
 
 @app.get(
@@ -479,68 +559,89 @@ async def list_converted_files() -> ConvertedFilesResponse:
 async def file_status() -> List[FileStatusEntry]:
     """
     Combines listings from both servers and returns the conversion status of
-    every raw file.
+    every **`.raw`** file (other file types are excluded from results).
 
-    Each entry reports whether a raw file has a corresponding entry on the
-    converted server.
+    Status values returned:
+    - ``converted``          — a matching .zarr directory exists on the converted server.
+    - ``converting``         — a background conversion is actively running right now.
+    - ``pending_conversion`` — file is on the raw server but not yet triggered.
 
-    ⚠️  The matching logic currently checks for an **exact filename match**
-        between raw and converted servers. If your conversion script renames
-        files (e.g., appending `_converted`), update the `is_converted` check
-        below to use your actual naming convention.
+    Falls back to cache + ``_active_conversions`` when the raw server is
+    temporarily unavailable (e.g. during a large file download).
 
-    - **Returns**: Array of `{filename, status, converted_url?}` objects.
-    - **Errors**: `502` if either server is unreachable.
+    - **Returns**: Array of ``{filename, status, converted_url?}`` objects.
     """
-    # Fetch both listings concurrently (includes folders like .zarr dirs)
-    import asyncio
-    raw_files, converted_files = await asyncio.gather(
-        _fetch_file_list(RAW_SERVER_URL),
-        _fetch_file_list(CONVERTED_SERVER_URL),
-    )
-
-    # Build a stem→entry map for the converted server so we can match
-    # 'file.raw' against 'file.zarr', 'file.raw', or any other converted name
-    # that shares the same stem (filename without extension).
-    converted_stem_map: Dict[str, str] = {}
-    for entry in converted_files:
-        stem = os.path.splitext(entry)[0]   # 'volume.zarr' → 'volume'
-        converted_stem_map[stem] = entry    # last one wins if duplicates
-
-    results: List[FileStatusEntry] = []
-    for filename in raw_files:
-        raw_stem = os.path.splitext(filename)[0]   # 'file.raw' → 'file'
-
-        # Match by exact full name first, then by stem (handles .raw ↔ .zarr)
-        if filename in set(converted_files):
-            matched_entry = filename
-            is_converted = True
-        elif raw_stem in converted_stem_map:
-            matched_entry = converted_stem_map[raw_stem]
-            is_converted = True
-        else:
-            matched_entry = None
-            is_converted = False
-
-        results.append(
-            FileStatusEntry(
-                filename=filename,
-                status="converted" if is_converted else "pending_conversion",
-                converted_url=(
-                    f"{CONVERTED_SERVER_URL.rstrip('/')}/{matched_entry}"
-                    if is_converted
-                    else None
-                ),
-            )
+    # ── Fetch raw file listing (with fallback) ──────────────────────────────
+    try:
+        raw_all = await _fetch_file_list(RAW_SERVER_URL)
+        raw_files = [f for f in raw_all if f.lower().endswith('.raw')]
+        # Refresh cache with complete .raw + .nhdr list
+        _update_raw_files_cache(
+            [f for f in raw_all if f.lower().endswith(('.raw', '.nhdr'))]
+        )
+    except HTTPException:
+        # Raw server busy — use cache and inject active conversions
+        cached = _get_raw_files_cache()
+        with _active_conversions_lock:
+            active_inject = set(_active_conversions)
+        raw_files = [f for f in cached if f.lower().endswith('.raw')]
+        for af in active_inject:
+            if af not in raw_files:
+                raw_files.append(af)
+        logger.warning(
+            "Raw server unavailable for status check — using %d cached + %d active",
+            len(cached), len(active_inject),
         )
 
-    converted_count = sum(1 for r in results if r.status == "converted")
-    pending_count = len(results) - converted_count
-    logger.info(
-        "Status overview: %d total | %d converted | %d pending",
-        len(results), converted_count, pending_count,
-    )
+    # ── Fetch converted listing (independent, with graceful fallback) ──────────
+    try:
+        converted_files = await _fetch_file_list(CONVERTED_SERVER_URL)
+    except HTTPException:
+        converted_files = []
+        logger.warning("Converted server unavailable for status check — assuming empty")
 
+    # ── Snapshot active conversions set ──────────────────────────────────
+    with _active_conversions_lock:
+        active_now = set(_active_conversions)
+
+    # ── Build stem→entry map for converted server (.raw ↔ .zarr matching) ─────
+    converted_stem_map: Dict[str, str] = {}
+    for entry in converted_files:
+        stem = os.path.splitext(entry)[0]
+        converted_stem_map[stem] = entry
+
+    converted_set = set(converted_files)
+
+    # ── Build result entries ──────────────────────────────────────────────
+    results: List[FileStatusEntry] = []
+    for filename in raw_files:
+        raw_stem = os.path.splitext(filename)[0]
+
+        if filename in converted_set:
+            status, matched_entry, is_converted = "converted", filename, True
+        elif raw_stem in converted_stem_map:
+            status, matched_entry, is_converted = "converted", converted_stem_map[raw_stem], True
+        elif filename in active_now:
+            status, matched_entry, is_converted = "converting", None, False
+        else:
+            status, matched_entry, is_converted = "pending_conversion", None, False
+
+        results.append(FileStatusEntry(
+            filename=filename,
+            status=status,
+            converted_url=(
+                f"{CONVERTED_SERVER_URL.rstrip('/')}/{matched_entry}"
+                if is_converted else None
+            ),
+        ))
+
+    converted_count  = sum(1 for r in results if r.status == "converted")
+    converting_count = sum(1 for r in results if r.status == "converting")
+    pending_count    = sum(1 for r in results if r.status == "pending_conversion")
+    logger.info(
+        "Status (.raw only): %d total | %d converted | %d converting | %d pending",
+        len(results), converted_count, converting_count, pending_count,
+    )
     return results
 
 

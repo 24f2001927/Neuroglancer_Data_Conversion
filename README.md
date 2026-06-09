@@ -50,58 +50,58 @@ Key capabilities:
 ---
 
 ## Architecture Diagram
+
 ```mermaid
 graph TB
-
     subgraph CLIENTS["Clients"]
-        UI_Pipe["Control Panel UI<br>172.20.23.217:10302<br>Skeuomorphic HTML/CSS/JS"]
-        UI_Dash["DB Dashboard UI<br>172.20.23.217:10303<br>Dark-mode HTML/CSS/JS"]
+        UI_Pipe["Control Panel UI<br/>(172.20.23.217:10302)<br/>Skeuomorphic HTML/CSS/JS"]
+        UI_Dash["DB Dashboard UI<br/>(172.20.23.217:10303)<br/>Dark-mode HTML/CSS/JS"]
     end
 
-    subgraph API_PIPE["Pipeline API · Port 10302"]
+    subgraph API_PIPE["Pipeline API  ·  Port 10302"]
         direction TB
-        FASTAPI_PIPE["FastAPI<br>(main.py)"]
-        CACHE["Thread-Safe Cache<br>_raw_files_cache<br>_active_conversions"]
-        BG_PIPE["BackgroundTasks<br>Worker Pool"]
+        FASTAPI_PIPE["FastAPI (main.py)"]
+        CACHE["Thread-Safe Cache<br/>_raw_files_cache<br/>_active_conversions"]
+        BG_PIPE["BackgroundTasks<br/>Worker Pool"]
     end
 
-    subgraph API_DB["Database API · Port 10303"]
-        FASTAPI_DB["FastAPI<br>(Database-api/main.py)"]
-        SQLITE["SQLite DB<br>(pipeline.db)"]
+    subgraph API_DB["Database API  ·  Port 10303"]
+        FASTAPI_DB["FastAPI (Database-api/main.py)"]
+        SQLITE["SQLite DB<br/>(pipeline.db)"]
     end
 
-    subgraph RAW_SERVER["Raw Server · Port 10228"]
-        RAW_DIR["HTTP Index<br>.raw + .nhdr"]
+    subgraph RAW_SERVER["Raw Server  ·  10228"]
+        RAW_DIR["HTTP Index<br/>.raw + .nhdr"]
     end
 
-    subgraph CONV_SERVER["Converted Server · Port 10229"]
-        ZARR_DIR["HTTP Index<br>.zarr"]
+    subgraph CONV_SERVER["Converted Server  ·  10229"]
+        ZARR_DIR["HTTP Index<br/>.zarr"]
     end
 
     subgraph LOCAL_FS["Local Filesystem"]
-        RAW_FILES["RAW_FILES_DIR<br>*.raw<br>*.nhdr"]
-        OUT_DIR["OUTPUT_ZARR_DIR<br>*.zarr"]
-        SCRIPT["raw_converter.py<br>Dask + Zarr Engine"]
+        RAW_FILES["RAW_FILES_DIR<br/>*.raw  *.nhdr"]
+        OUT_DIR["OUTPUT_ZARR_DIR<br/>*.zarr"]
+        SCRIPT["raw_converter.py<br/>Dask + Zarr engine"]
     end
 
-    UI_Pipe -->|"Polls /api/files/status"| FASTAPI_PIPE
-    UI_Dash -->|"CRUD operations"| FASTAPI_DB
-    UI_Dash -->|"POST /api/jobs/{id}/convert"| FASTAPI_DB
+    UI_Pipe -->|Polls /api/files/status| FASTAPI_PIPE
+    UI_Dash -->|CRUD operations| FASTAPI_DB
+    UI_Dash -->|POST /api/jobs/{id}/convert| FASTAPI_DB
 
-    FASTAPI_DB -->|"1. GET /api/files/raw"| FASTAPI_PIPE
-    FASTAPI_DB -->|"2. POST /api/convert/{file}"| FASTAPI_PIPE
-    FASTAPI_DB -->|"Reads/Writes"| SQLITE
+    FASTAPI_DB -->|1. GET /api/files/raw| FASTAPI_PIPE
+    FASTAPI_DB -->|2. POST /api/convert/{file}| FASTAPI_PIPE
+    FASTAPI_DB -->|Reads/Writes| SQLITE
 
     FASTAPI_PIPE --> CACHE
-    FASTAPI_PIPE -->|"Downloads"| RAW_SERVER
-    FASTAPI_PIPE -->|"Checks"| CONV_SERVER
+    FASTAPI_PIPE -->|Downloads| RAW_SERVER
+    FASTAPI_PIPE -->|Checks| CONV_SERVER
     FASTAPI_PIPE --> BG_PIPE
-
-    BG_PIPE -->|"subprocess.run()"| SCRIPT
-
-    SCRIPT -->|"Memmap reads"| RAW_FILES
-    SCRIPT -->|"Writes pyramid"| OUT_DIR
+    BG_PIPE -->|subprocess.run| SCRIPT
+    
+    SCRIPT -->|Memmap reads| RAW_FILES
+    SCRIPT -->|Writes pyramid| OUT_DIR
 ```
+
 ---
 
 ## Project Structure
