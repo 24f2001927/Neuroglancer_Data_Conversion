@@ -36,7 +36,7 @@ The system coordinates three external resources:
 |---|---|---|
 | **Raw Data Server** | `http://172.20.23.241:10228/` | Hosts unconverted `.raw` + `.nhdr` file pairs |
 | **Converted Data Server** | `http://172.20.23.241:10229/` | Hosts finished `.zarr` OME-Zarr stores |
-| **Pipeline API** | `http://172.20.23.217:10303/` | This FastAPI backend — orchestrates everything |
+| **Pipeline API** | `http://172.20.23.217:10302/` | This FastAPI backend — orchestrates everything |
 
 Key capabilities:
 - **Live file listing** from both HTTP servers via HTML directory-index parsing
@@ -56,7 +56,7 @@ graph TB
         DEV["🧑‍💻 Developer / Curl / Swagger"]
     end
 
-    subgraph API["⚙️ Pipeline API  ·  172.20.23.217:10303"]
+    subgraph API["⚙️ Pipeline API  ·  172.20.23.217:10302"]
         direction TB
         FASTAPI["FastAPI Application<br/>(main.py)"]
         CORS["CORS Middleware<br/>allow_origins: *"]
@@ -318,7 +318,7 @@ python3 raw_converter.py \
 
 A **pure HTML/CSS** skeuomorphic dashboard — zero JavaScript. Served by FastAPI at `GET /`.
 
-**Served at:** `http://172.20.23.217:10303/`
+**Served at:** `http://172.20.23.217:10302/`
 
 #### UI Sections
 
@@ -442,30 +442,36 @@ HTTP_TIMEOUT   = 10.0  # Seconds before server fetch times out
 ```bash
 cd NG_data_conversion_pipeline
 ```
+### 2. Create Virtual environment(optional)
+```bash
+python3.12 -m venv venv
+#python version must be more than 3.11
+source venv/bin/activate
+```
 
-### 2. Install dependencies
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Start the API server
+### 4. Start the API server
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 10303 --reload
+uvicorn main:app --host 0.0.0.0 --port 8002 --reload
 ```
 
 | Flag | Purpose |
 |---|---|
 | `--host 0.0.0.0` | Listen on all interfaces (required for network access) |
-| `--port 10303` | Port number |
+| `--port 10302` | Port number |
 | `--reload` | Auto-restart on file changes (development only) |
 
 ### 4. Open the control panel
 
-Navigate to: **`http://172.20.23.217:10303/`**
+Navigate to: **`http://172.20.23.217:10302/`**
 
-Or the Swagger UI: **`http://172.20.23.217:10303/docs`**
+Or the Swagger UI: **`http://172.20.23.217:10302/docs`**
 
 ---
 
@@ -473,7 +479,7 @@ Or the Swagger UI: **`http://172.20.23.217:10303/docs`**
 
 ### Option A — Swagger UI (recommended for one-off)
 
-1. Open `http://172.20.23.217:10303/docs`
+1. Open `http://172.20.23.217:10302/docs`
 2. Expand `POST /api/convert/{filename}`
 3. Click **Try it out**
 4. Enter the filename, e.g. `142_2dwarp_img_4mpp_new.raw`
@@ -483,17 +489,17 @@ Or the Swagger UI: **`http://172.20.23.217:10303/docs`**
 ### Option B — curl
 
 ```bash
-curl -X POST "http://172.20.23.217:10303/api/convert/142_2dwarp_img_4mpp_new.raw"
+curl -X POST "http://172.20.23.217:10302/api/convert/142_2dwarp_img_4mpp_new.raw"
 ```
 
 ### Option C — Verify metadata first, then convert
 
 ```bash
 # Step 1: Check NHDR metadata
-curl http://172.20.23.217:10303/api/files/metadata/142_2dwarp_img_4mpp_new.raw
+curl http://172.20.23.217:10302/api/files/metadata/142_2dwarp_img_4mpp_new.raw
 
 # Step 2: Trigger conversion
-curl -X POST http://172.20.23.217:10303/api/convert/142_2dwarp_img_4mpp_new.raw
+curl -X POST http://172.20.23.217:10302/api/convert/142_2dwarp_img_4mpp_new.raw
 ```
 
 ### Monitor conversion progress

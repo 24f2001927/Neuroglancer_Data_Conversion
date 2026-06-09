@@ -44,9 +44,6 @@ CONVERTED_SERVER_URL = "http://172.20.23.241:10229/"
 
 # ---------------------------------------------------------------------------
 # Conversion Script Configuration — raw_converter.py
-# ⚠️  Adjust RAW_FILES_DIR and OUTPUT_ZARR_DIR to match your environment.
-#     Volume shape, dtype and chunks are now read AUTOMATICALLY from the
-#     paired .nhdr file — no manual config needed.
 # ---------------------------------------------------------------------------
 
 # Absolute path to the conversion script (same directory as main.py)
@@ -54,46 +51,30 @@ CONVERSION_SCRIPT = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "raw_converter.py"
 )
 
-# Directory where raw .raw / .nhdr file pairs are stored locally.
-# ⚠️  Update this to your actual raw data directory.
-RAW_FILES_DIR = "/home/tahmeed/nvIndexViewer/"
-
-# Directory where converted .zarr stores will be written.
-# ⚠️  Update this to your desired output location.
-OUTPUT_ZARR_DIR = "/home/tahmeed/Dataneuroglancer/converted"
+# Directory where converted .zarr stores will be written locally.
+# ⚠️  Update this to your desired output path on this machine.
+OUTPUT_ZARR_DIR = "/apps/workspace/Data_NG_Converted"
 
 # Default number of OME-Zarr downsampling pyramid levels.
-# Can be overridden per-request in the future.
 PYRAMID_LEVELS = 4
 
-# Request timeout for fetching remote directory listings (seconds)
+# Request timeout for fetching remote directory listings (seconds).
+# Note: .raw file downloads use a separate streaming client with no timeout.
 HTTP_TIMEOUT = 10.0
 
 # ---------------------------------------------------------------------------
 # NRRD dtype string → NumPy dtype  (mirrors raw_converter.py for API use)
 # ---------------------------------------------------------------------------
 _NRRD_DTYPE_MAP: Dict[str, str] = {
-    "unsigned char": "uint8",
-    "uchar": "uint8",
-    "uint8": "uint8",
-    "unsigned short": "uint16",
-    "ushort": "uint16",
-    "uint16": "uint16",
-    "unsigned int": "uint32",
-    "uint": "uint32",
-    "uint32": "uint32",
-    "unsigned long long": "uint64",
-    "uint64": "uint64",
-    "signed char": "int8",
-    "int8": "int8",
-    "short": "int16",
-    "int16": "int16",
-    "int": "int32",
-    "int32": "int32",
-    "long long": "int64",
-    "int64": "int64",
-    "float": "float32",
-    "double": "float64",
+    "unsigned char": "uint8",   "uchar": "uint8",       "uint8": "uint8",
+    "unsigned short": "uint16", "ushort": "uint16",     "uint16": "uint16",
+    "unsigned int": "uint32",   "uint": "uint32",        "uint32": "uint32",
+    "unsigned long long": "uint64",                      "uint64": "uint64",
+    "signed char": "int8",      "int8": "int8",
+    "short": "int16",           "int16": "int16",
+    "int": "int32",             "int32": "int32",
+    "long long": "int64",       "int64": "int64",
+    "float": "float32",         "double": "float64",
 }
 
 # ---------------------------------------------------------------------------
@@ -133,23 +114,16 @@ app.mount("/static", StaticFiles(directory=_PROJECT_DIR), name="static")
 
 class RawFilesResponse(BaseModel):
     """Response model for GET /api/files/raw"""
-
-    raw_files: List[str] = Field(
-        ..., description="List of filenames on the raw data server."
-    )
+    raw_files: List[str] = Field(..., description="List of filenames on the raw data server.")
 
 
 class ConvertedFilesResponse(BaseModel):
     """Response model for GET /api/files/converted"""
-
-    converted_files: List[str] = Field(
-        ..., description="List of filenames on the converted data server."
-    )
+    converted_files: List[str] = Field(..., description="List of filenames on the converted data server.")
 
 
 class FileStatusEntry(BaseModel):
     """A single file's conversion status entry."""
-
     filename: str = Field(..., description="The raw filename.")
     status: str = Field(
         ...,
@@ -163,40 +137,24 @@ class FileStatusEntry(BaseModel):
 
 class NhdrMetadata(BaseModel):
     """Parsed metadata from a .nhdr NRRD header file."""
-
-    filename: str = Field(
-        ..., description="The .raw filename this metadata belongs to."
-    )
-    nhdr_file: str = Field(
-        ..., description="Absolute path to the .nhdr file that was parsed."
-    )
-    raw_sizes: List[int] = Field(
-        ..., description="Original NRRD sizes order: [X, Y, Z]."
-    )
-    numpy_shape: List[int] = Field(..., description="NumPy / C-order shape: [Z, Y, X].")
-    dtype: str = Field(..., description="NumPy dtype string (e.g. 'uint8').")
-    encoding: str = Field(..., description="NRRD encoding field (e.g. 'raw', 'gzip').")
-    dimension: int = Field(..., description="Number of spatial dimensions.")
-    data_file: Optional[str] = Field(
-        None, description="'data file' field from the header if present."
-    )
+    filename:    str            = Field(..., description="The .raw filename this metadata belongs to.")
+    nhdr_file:   str            = Field(..., description="Absolute path to the .nhdr file that was parsed.")
+    raw_sizes:   List[int]      = Field(..., description="Original NRRD sizes order: [X, Y, Z].")
+    numpy_shape: List[int]      = Field(..., description="NumPy / C-order shape: [Z, Y, X].")
+    dtype:       str            = Field(..., description="NumPy dtype string (e.g. 'uint8').")
+    encoding:    str            = Field(..., description="NRRD encoding field (e.g. 'raw', 'gzip').")
+    dimension:   int            = Field(..., description="Number of spatial dimensions.")
+    data_file:   Optional[str]  = Field(None, description="'data file' field from the header if present.")
 
 
 class ConversionTriggerResponse(BaseModel):
     """Response model for POST /api/convert/{filename}"""
-
-    message: str
-    status: str
-    filename: str
-    nhdr_found: bool = Field(
-        ..., description="Whether a paired .nhdr file was found and will be used."
-    )
-    input_path: str = Field(
-        ..., description="Absolute path to the .raw file being converted."
-    )
-    output_path: str = Field(
-        ..., description="Absolute path where the .zarr store will be written."
-    )
+    message:    str
+    status:     str
+    filename:   str
+    nhdr_found: bool = Field(..., description="Whether a paired .nhdr file was found and will be used.")
+    input_path: str  = Field(..., description="Absolute path to the .raw file being converted.")
+    output_path: str = Field(..., description="Absolute path where the .zarr store will be written.")
 
 
 # ---------------------------------------------------------------------------
@@ -206,46 +164,46 @@ class ConversionTriggerResponse(BaseModel):
 
 def _parse_directory_listing(html: str) -> List[str]:
     """
-    Parse a standard HTTP directory listing page and return a list of filenames.
+    Parse a standard HTTP directory listing page and return a list of filenames
+    AND directory names (e.g. .zarr folders on the converted server).
 
     Works with:
       - Python's built-in http.server / SimpleHTTPServer
       - Nginx autoindex
       - Apache mod_autoindex
 
-    ⚠️  If your server returns a non-standard listing page, update the parsing
-        logic below. The key selector is the <a> tag whose href does NOT start
-        with '?' (query strings used for sorting) and is NOT the parent link '..'.
+    Both files and directories are returned. Directory hrefs ending in '/'
+    are included with the trailing slash stripped so that .zarr folder names
+    appear cleanly (e.g. 'volume.zarr' not 'volume.zarr/').
 
     Args:
         html: Raw HTML string of the directory listing page.
 
     Returns:
-        List of filenames (strings), excluding navigation/sorting links.
+        List of entry names (files and directories), excluding navigation links.
     """
     soup = BeautifulSoup(html, "html.parser")
-    filenames: List[str] = []
+    entries: List[str] = []
 
     for anchor in soup.find_all("a", href=True):
         href: str = anchor["href"]
 
-        # Skip sorting/query links (e.g. ?C=N&O=D), parent directory links,
-        # and any absolute URLs that point elsewhere.
+        # Skip sorting/query links (e.g. ?C=N&O=D), root link, parent dir link,
+        # and absolute URLs that point elsewhere.
         if (
             href.startswith("?")
             or href == "/"
-            or href == "../"
+            or href in ("../", "..")
             or href.startswith("http")
         ):
             continue
 
-        # Strip any trailing slash (directory entries) — keep if you want dirs too.
-        # ⚠️  Remove the `if not href.endswith("/")` guard if you want to list
-        #     sub-directories as well.
-        if not href.endswith("/"):
-            filenames.append(href)
+        # Strip trailing slash from directory entries so 'volume.zarr/' → 'volume.zarr'
+        name = href.rstrip("/")
+        if name:  # guard against empty strings
+            entries.append(name)
 
-    return filenames
+    return entries
 
 
 async def _fetch_file_list(server_url: str) -> List[str]:
@@ -270,7 +228,8 @@ async def _fetch_file_list(server_url: str) -> List[str]:
         raise HTTPException(
             status_code=502,
             detail=(
-                f"File server at {server_url} returned HTTP {exc.response.status_code}."
+                f"File server at {server_url} returned HTTP "
+                f"{exc.response.status_code}."
             ),
         )
 
@@ -282,46 +241,45 @@ async def _fetch_file_list(server_url: str) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
-def _parse_nhdr_file(nhdr_path: str) -> Dict[str, Any]:
+def _parse_nhdr_content(text: str, source: str = "<string>") -> Dict[str, Any]:
     """
-    Parse a detached NRRD header (.nhdr) and return a metadata dict:
+    Parse NHDR field text (already loaded into memory) and return a metadata dict:
 
         {
             "raw_sizes":   (X, Y, Z)  — original NRRD order,
             "numpy_shape": (Z, Y, X)  — C-order for NumPy,
-            "dtype":       str,        — NumPy dtype string,
+            "dtype":       str,
             "encoding":    str,
             "data_file":   str,
             "dimension":   int,
         }
 
-    Raises:
-        FileNotFoundError: nhdr_path does not exist.
-        ValueError: Required fields missing or dtype unknown.
-    """
-    if not os.path.isfile(nhdr_path):
-        raise FileNotFoundError(f"NHDR not found: {nhdr_path}")
+    Args:
+        text:   Full text content of the .nhdr file.
+        source: Label used in error messages (e.g. the URL or path).
 
+    Raises:
+        ValueError: Required fields missing or dtype unrecognised.
+    """
     fields: Dict[str, str] = {}
-    with open(nhdr_path, "r", encoding="utf-8", errors="replace") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#") or line.upper().startswith("NRRD"):
-                continue
-            if ":" in line:
-                key, _, value = line.partition(":")
-                fields[key.strip().lower()] = value.strip()
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or line.upper().startswith("NRRD"):
+            continue
+        if ":" in line:
+            key, _, value = line.partition(":")
+            fields[key.strip().lower()] = value.strip()
 
     # dtype
     raw_type = fields.get("type", "")
     dtype_str = _NRRD_DTYPE_MAP.get(raw_type.lower())
     if dtype_str is None:
-        raise ValueError(f"Unknown NRRD type '{raw_type}' in {nhdr_path}")
+        raise ValueError(f"Unknown NRRD type '{raw_type}' in {source}")
 
-    # sizes  — NRRD stores as X Y Z
+    # sizes — NRRD stores as X Y Z (fastest-axis first)
     sizes_str = fields.get("sizes", "")
     if not sizes_str:
-        raise ValueError(f"'sizes' field missing from {nhdr_path}")
+        raise ValueError(f"'sizes' field missing from {source}")
     raw_sizes: Tuple[int, ...] = tuple(int(s) for s in sizes_str.split())
     dimension = int(fields.get("dimension", len(raw_sizes)))
 
@@ -329,13 +287,21 @@ def _parse_nhdr_file(nhdr_path: str) -> Dict[str, Any]:
     numpy_shape: Tuple[int, ...] = tuple(reversed(raw_sizes))
 
     return {
-        "raw_sizes": raw_sizes,
+        "raw_sizes":   raw_sizes,
         "numpy_shape": numpy_shape,
-        "dtype": dtype_str,
-        "encoding": fields.get("encoding", "raw").lower(),
-        "data_file": fields.get("data file", "") or fields.get("datafile", ""),
-        "dimension": dimension,
+        "dtype":       dtype_str,
+        "encoding":    fields.get("encoding", "raw").lower(),
+        "data_file":   fields.get("data file", "") or fields.get("datafile", ""),
+        "dimension":   dimension,
     }
+
+
+def _parse_nhdr_file(nhdr_path: str) -> Dict[str, Any]:
+    """Convenience wrapper: read a local .nhdr file then call _parse_nhdr_content."""
+    if not os.path.isfile(nhdr_path):
+        raise FileNotFoundError(f"NHDR not found: {nhdr_path}")
+    with open(nhdr_path, "r", encoding="utf-8", errors="replace") as fh:
+        return _parse_nhdr_content(fh.read(), source=nhdr_path)
 
 
 # ---------------------------------------------------------------------------
@@ -345,79 +311,107 @@ def _parse_nhdr_file(nhdr_path: str) -> Dict[str, Any]:
 
 def _run_conversion(filename: str) -> None:
     """
-    Background task that invokes raw_converter.py via subprocess.
-
-    - Input  path: RAW_FILES_DIR / filename
-    - Output path: OUTPUT_ZARR_DIR / <stem>.zarr
-    - Volume params (shape, dtype, chunks) are read from the paired .nhdr
-      file by raw_converter.py automatically — no hardcoded values here.
+    Background task that:
+      1. Downloads the .nhdr sidecar from the raw HTTP server (small, fast)
+      2. Streams the .raw binary from the raw HTTP server to a temp directory
+      3. Runs raw_converter.py on the temp files
+      4. Cleans up the temp directory (raw + nhdr) after conversion
+         — the output .zarr in OUTPUT_ZARR_DIR is kept.
 
     Runs in FastAPI's thread-pool so it never blocks the async event loop.
-    stdout/stderr from raw_converter.py is forwarded to the pipeline_api logger.
     """
-    input_path = os.path.join(RAW_FILES_DIR, filename)
-    stem = os.path.splitext(filename)[0]
-    output_path = os.path.join(OUTPUT_ZARR_DIR, f"{stem}.zarr")
-    nhdr_path = os.path.join(RAW_FILES_DIR, f"{stem}.nhdr")
+    import shutil
+    import tempfile
 
-    nhdr_found = os.path.isfile(nhdr_path)
+    stem        = os.path.splitext(filename)[0]
+    raw_url     = f"{RAW_SERVER_URL.rstrip('/')}/{filename}"
+    nhdr_url    = f"{RAW_SERVER_URL.rstrip('/')}/{stem}.nhdr"
+    output_path = os.path.join(OUTPUT_ZARR_DIR, f"{stem}.zarr")
+
     logger.info(
         "[CONVERSION] ▶  Starting: %s\n"
-        "  input   → %s\n"
-        "  output  → %s\n"
-        "  nhdr    → %s (%s)",
-        filename,
-        input_path,
-        output_path,
-        nhdr_path,
-        "found ✅"
-        if nhdr_found
-        else "NOT FOUND ⚠️  — raw_converter will require --shape/--dtype",
+        "  source  → %s\n"
+        "  output  → %s",
+        filename, raw_url, output_path,
     )
 
-    os.makedirs(OUTPUT_ZARR_DIR, exist_ok=True)
+    tmp_dir = tempfile.mkdtemp(prefix="ng_convert_")
+    tmp_raw  = os.path.join(tmp_dir, filename)
+    tmp_nhdr = os.path.join(tmp_dir, f"{stem}.nhdr")
 
     try:
-        # raw_converter.py auto-discovers and parses the .nhdr file;
-        # we only need to pass --input, --output and --levels.
-        cmd = [
-            "python3",
-            CONVERSION_SCRIPT,
-            "--input",
-            input_path,
-            "--output",
-            output_path,
-            "--levels",
-            str(PYRAMID_LEVELS),
-        ]
+        # ── Step 1: Download .nhdr (small header file) ──────────────────────
+        logger.info("[CONVERSION] Downloading NHDR: %s", nhdr_url)
+        with httpx.Client(timeout=30.0) as client:
+            r = client.get(nhdr_url)
+            if r.status_code == 200:
+                with open(tmp_nhdr, "wb") as f:
+                    f.write(r.content)
+                logger.info("[CONVERSION] NHDR saved → %s", tmp_nhdr)
+            else:
+                logger.warning(
+                    "[CONVERSION] NHDR not found on server (HTTP %d) "
+                    "— raw_converter will exit unless --shape/--dtype are passed.",
+                    r.status_code,
+                )
 
+        # ── Step 2: Stream .raw file to temp dir ────────────────────────────
+        logger.info("[CONVERSION] Streaming .raw from server: %s", raw_url)
+        with httpx.Client(timeout=None) as client:       # no timeout — large files
+            with client.stream("GET", raw_url) as r:
+                r.raise_for_status()
+                content_length = int(r.headers.get("content-length", 0))
+                downloaded = 0
+                chunk_size = 8 * 1024 * 1024             # 8 MB chunks
+                with open(tmp_raw, "wb") as f:
+                    for chunk in r.iter_bytes(chunk_size=chunk_size):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if content_length:
+                            pct = downloaded / content_length * 100
+                            logger.info(
+                                "[CONVERSION] Download %.1f%%  (%d / %d bytes)",
+                                pct, downloaded, content_length,
+                            )
+        logger.info("[CONVERSION] .raw saved → %s  (%d bytes)", tmp_raw, downloaded)
+
+        # ── Step 3: Run conversion ───────────────────────────────────────────
+        # raw_converter.py auto-discovers the .nhdr next to the .raw in tmp_dir
+        os.makedirs(OUTPUT_ZARR_DIR, exist_ok=True)
+        cmd = [
+            "python3", CONVERSION_SCRIPT,
+            "--input",  tmp_raw,
+            "--output", output_path,
+            "--levels", str(PYRAMID_LEVELS),
+        ]
         logger.info("[CONVERSION] Command: %s", " ".join(cmd))
 
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=3600,  # ⚠️  Increase for very large volumes
+            timeout=7200,       # 2 h — increase for very large volumes
             check=False,
         )
 
         if result.returncode == 0:
             logger.info(
-                "[CONVERSION] ✅ Completed: %s\n  stdout: %s",
-                filename,
+                "[CONVERSION] ✅ Completed: %s → %s\n  stdout: %s",
+                filename, output_path,
                 result.stdout.strip() or "(no output)",
             )
         else:
             logger.error(
                 "[CONVERSION] ❌ Failed: %s (exit %d)\n  stdout: %s\n  stderr: %s",
-                filename,
-                result.returncode,
+                filename, result.returncode,
                 result.stdout.strip() or "(none)",
                 result.stderr.strip() or "(none)",
             )
 
+    except httpx.RequestError as exc:
+        logger.error("[CONVERSION] ❌ Network error downloading %s: %s", filename, exc)
     except subprocess.TimeoutExpired:
-        logger.error("[CONVERSION] ⏰ Timed out: %s", filename)
+        logger.error("[CONVERSION] ⏰ Timed out converting: %s", filename)
     except FileNotFoundError:
         logger.error(
             "[CONVERSION] ❌ Script not found: '%s'. Check CONVERSION_SCRIPT in main.py.",
@@ -425,6 +419,10 @@ def _run_conversion(filename: str) -> None:
         )
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception("[CONVERSION] ❌ Unexpected error for %s: %s", filename, exc)
+    finally:
+        # ── Step 4: Clean up temp dir (raw + nhdr) — keep the .zarr output ──
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        logger.info("[CONVERSION] Temp dir cleaned up: %s", tmp_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -494,29 +492,42 @@ async def file_status() -> List[FileStatusEntry]:
     - **Returns**: Array of `{filename, status, converted_url?}` objects.
     - **Errors**: `502` if either server is unreachable.
     """
-    # Fetch both listings concurrently
+    # Fetch both listings concurrently (includes folders like .zarr dirs)
     import asyncio
-
     raw_files, converted_files = await asyncio.gather(
         _fetch_file_list(RAW_SERVER_URL),
         _fetch_file_list(CONVERTED_SERVER_URL),
     )
 
-    # Build a set for O(1) lookup
-    converted_set = set(converted_files)
+    # Build a stem→entry map for the converted server so we can match
+    # 'file.raw' against 'file.zarr', 'file.raw', or any other converted name
+    # that shares the same stem (filename without extension).
+    converted_stem_map: Dict[str, str] = {}
+    for entry in converted_files:
+        stem = os.path.splitext(entry)[0]   # 'volume.zarr' → 'volume'
+        converted_stem_map[stem] = entry    # last one wins if duplicates
 
     results: List[FileStatusEntry] = []
     for filename in raw_files:
-        # ⚠️  UPDATE this condition if your converted filenames differ from raw
-        #     filenames (e.g., is_converted = f"{filename}.converted" in converted_set).
-        is_converted = filename in converted_set
+        raw_stem = os.path.splitext(filename)[0]   # 'file.raw' → 'file'
+
+        # Match by exact full name first, then by stem (handles .raw ↔ .zarr)
+        if filename in set(converted_files):
+            matched_entry = filename
+            is_converted = True
+        elif raw_stem in converted_stem_map:
+            matched_entry = converted_stem_map[raw_stem]
+            is_converted = True
+        else:
+            matched_entry = None
+            is_converted = False
 
         results.append(
             FileStatusEntry(
                 filename=filename,
                 status="converted" if is_converted else "pending_conversion",
                 converted_url=(
-                    f"{CONVERTED_SERVER_URL.rstrip('/')}/{filename}"
+                    f"{CONVERTED_SERVER_URL.rstrip('/')}/{matched_entry}"
                     if is_converted
                     else None
                 ),
@@ -527,16 +538,14 @@ async def file_status() -> List[FileStatusEntry]:
     pending_count = len(results) - converted_count
     logger.info(
         "Status overview: %d total | %d converted | %d pending",
-        len(results),
-        converted_count,
-        pending_count,
+        len(results), converted_count, pending_count,
     )
 
     return results
 
 
 @app.get(
-    "/api/files/raw/{filename}",
+    "/api/files/metadata/{filename}",
     response_model=NhdrMetadata,
     summary="Read NHDR metadata for a raw file",
     tags=["Files"],
@@ -544,50 +553,61 @@ async def file_status() -> List[FileStatusEntry]:
 async def get_file_metadata(
     filename: str = Path(
         ...,
-        description="The .raw filename whose paired .nhdr will be parsed.",
+        description="The .raw filename whose paired .nhdr will be fetched from the raw server.",
         examples=["142_2dwarp_img_4mpp_new.raw"],
     ),
 ) -> NhdrMetadata:
     """
-    Reads and returns the parsed NRRD metadata from the `.nhdr` file paired
-    with the given `.raw` filename (same directory, same stem).
+    Fetches the `.nhdr` sidecar file from the **Raw Data Server** and returns
+    its parsed volume metadata (shape, dtype, encoding, etc.).
 
-    Useful for verifying what shape/dtype will be used before triggering a
-    conversion.
+    No local filesystem access required — reads directly from the HTTP server.
 
-    - **Returns**: `NhdrMetadata` object with parsed volume parameters.
-    - **Errors**: `404` if no `.nhdr` file is found; `422` if it cannot be parsed.
+    - **Returns**: `NhdrMetadata` with parsed volume parameters.
+    - **Errors**: `404` if no `.nhdr` exists on the server; `422` if malformed.
     """
-    stem = os.path.splitext(filename)[0]
-    nhdr_path = os.path.join(RAW_FILES_DIR, f"{stem}.nhdr")
+    stem     = os.path.splitext(filename)[0]
+    nhdr_url = f"{RAW_SERVER_URL.rstrip('/')}/{stem}.nhdr"
 
-    if not os.path.isfile(nhdr_path):
+    # Fetch .nhdr text from the raw server
+    try:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            r = await client.get(nhdr_url)
+            if r.status_code == 404:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No .nhdr found for '{filename}' on raw server at {nhdr_url}",
+                )
+            r.raise_for_status()
+            nhdr_text = r.text
+    except HTTPException:
+        raise
+    except httpx.RequestError as exc:
         raise HTTPException(
-            status_code=404,
-            detail=f"No .nhdr file found for '{filename}' at {nhdr_path}",
+            status_code=502,
+            detail=f"Cannot reach raw server to fetch NHDR: {exc}",
         )
 
+    # Parse in-memory (no temp file needed for the small header)
     try:
-        meta = _parse_nhdr_file(nhdr_path)
+        meta = _parse_nhdr_content(nhdr_text, source=nhdr_url)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
     logger.info(
-        "Metadata served for %s: shape=%s dtype=%s",
-        filename,
-        meta["numpy_shape"],
-        meta["dtype"],
+        "Metadata served for %s: shape=%s dtype=%s (source: %s)",
+        filename, meta["numpy_shape"], meta["dtype"], nhdr_url,
     )
 
     return NhdrMetadata(
-        filename=filename,
-        nhdr_file=nhdr_path,
-        raw_sizes=list(meta["raw_sizes"]),
-        numpy_shape=list(meta["numpy_shape"]),
-        dtype=meta["dtype"],
-        encoding=meta["encoding"],
-        dimension=meta["dimension"],
-        data_file=meta["data_file"] or None,
+        filename    = filename,
+        nhdr_file   = nhdr_url,          # URL not a local path
+        raw_sizes   = list(meta["raw_sizes"]),
+        numpy_shape = list(meta["numpy_shape"]),
+        dtype       = meta["dtype"],
+        encoding    = meta["encoding"],
+        dimension   = meta["dimension"],
+        data_file   = meta["data_file"] or None,
     )
 
 
@@ -609,41 +629,50 @@ async def trigger_conversion(
     """
     Enqueues a **background conversion job** for the specified `.raw` filename.
 
-    The endpoint returns immediately (`202 Accepted`) while `raw_converter.py`
-    runs in the background. Volume parameters (shape, dtype, chunks) are
-    auto-read from the paired `.nhdr` file — no manual config required.
+    The endpoint returns immediately (`202 Accepted`). The background task will:
+    1. Download the `.nhdr` sidecar from the raw server
+    2. Stream the `.raw` file from the raw server into a temp directory
+    3. Run `raw_converter.py` (shape/dtype auto-read from `.nhdr`)
+    4. Write the output `.zarr` to `OUTPUT_ZARR_DIR`
+    5. Delete the temp files
 
-    - **Path param**: `filename` — must be a `.raw` file on the raw server.
-    - **Returns**: Acknowledgement + resolved input/output paths.
-
-    > **Tip**: Call `GET /api/files/raw/{filename}` first to verify the
-    > NHDR is readable and the volume parameters look correct.
+    - **Path param**: `filename` — must be a `.raw` file listed on the raw server.
+    - **Returns**: Acknowledgement + source URL + output path.
     """
-    stem = os.path.splitext(filename)[0]
-    input_path = os.path.join(RAW_FILES_DIR, filename)
+    stem       = os.path.splitext(filename)[0]
+    raw_url    = f"{RAW_SERVER_URL.rstrip('/')}/{filename}"
+    nhdr_url   = f"{RAW_SERVER_URL.rstrip('/')}/{stem}.nhdr"
     output_path = os.path.join(OUTPUT_ZARR_DIR, f"{stem}.zarr")
-    nhdr_path = os.path.join(RAW_FILES_DIR, f"{stem}.nhdr")
-    nhdr_found = os.path.isfile(nhdr_path)
+
+    # Quick HEAD check to see if the .nhdr exists on the server
+    nhdr_found = False
+    try:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            r = await client.head(nhdr_url)
+            nhdr_found = r.status_code == 200
+    except httpx.RequestError:
+        pass  # server may not support HEAD — conversion will find out at download time
 
     if not nhdr_found:
         logger.warning(
-            "No .nhdr found for '%s' at %s — conversion may fail without shape/dtype.",
-            filename,
-            nhdr_path,
+            "NHDR not found on server for '%s' (%s) — conversion may fail.",
+            filename, nhdr_url,
         )
 
-    logger.info("Conversion requested for: %s  (nhdr_found=%s)", filename, nhdr_found)
+    logger.info(
+        "Conversion queued: %s  nhdr_found=%s  output→%s",
+        filename, nhdr_found, output_path,
+    )
 
-    # Enqueue background task — returns immediately
     background_tasks.add_task(_run_conversion, filename)
 
     return ConversionTriggerResponse(
-        message=f"Conversion started for {filename}",
-        status="processing",
-        filename=filename,
-        nhdr_found=nhdr_found,
-        input_path=input_path,
-        output_path=output_path,
+        message     = f"Conversion started for {filename}",
+        status      = "processing",
+        filename    = filename,
+        nhdr_found  = nhdr_found,
+        input_path  = raw_url,       # URL on the raw server (not a local path)
+        output_path = output_path,
     )
 
 
