@@ -50,7 +50,7 @@ Key capabilities:
 ---
 
 ## Architecture Diagram
-
+```mermaid
 graph TB
 
     subgraph CLIENTS["Clients"]
@@ -101,6 +101,7 @@ graph TB
 
     SCRIPT -->|"Memmap reads"| RAW_FILES
     SCRIPT -->|"Writes pyramid"| OUT_DIR
+```
 ---
 
 ## Project Structure
