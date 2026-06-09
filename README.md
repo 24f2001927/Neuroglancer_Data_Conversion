@@ -1,8 +1,10 @@
-# NG Data Conversion Pipeline
+# NG Data Conversion Pipeline & Tracking System
 
 > **Developer:** Tahmeed Ahmad
-> **Version:** 1.0.0
-> **Stack:** Python 3.10 · FastAPI 0.136 · Uvicorn · Dask · OME-Zarr · NumPy
+> **Organisation:** Sudha Gopalakrishnan Brain Centre, IIT MADRAS
+> **Version:** 1.1.0
+> **Stack:** Python 3.10 · FastAPI · Uvicorn · Dask · OME-Zarr · NumPy · SQLite
+> **Last Updated:** June 2026
 
 ---
 
@@ -10,40 +12,40 @@
 
 1. [Overview](#overview)
 2. [Architecture Diagram](#architecture-diagram)
-3. [Conversion Process Diagram](#conversion-process-diagram)
-4. [API Request Flow Diagram](#api-request-flow-diagram)
-5. [Project Structure](#project-structure)
-6. [Components](#components)
-   - [main.py — FastAPI Backend](#mainpy--fastapi-backend)
-   - [raw_converter.py — Conversion Engine](#raw_converterpy--conversion-engine)
-   - [index.html + style.css — Control Panel UI](#indexhtml--stylecss--control-panel-ui)
+3. [Project Structure](#project-structure)
+4. [In-Memory Conversion Tracking & Cache](#in-memory-conversion-tracking--cache)
+5. [Control Panel UI Features (Port 10302)](#control-panel-ui-features-port-10302)
+6. [Database Dashboard UI Features (Port 10303)](#database-dashboard-ui-features-port-10303)
 7. [API Endpoints Reference](#api-endpoints-reference)
-8. [NRRD / NHDR Header Parsing](#nrrd--nhdr-header-parsing)
-9. [Configuration](#configuration)
-10. [Installation & Running](#installation--running)
-11. [How to Trigger a Conversion](#how-to-trigger-a-conversion)
-12. [Requirements](#requirements)
+8. [Conversion Process Diagram](#conversion-process-diagram)
+9. [NRRD / NHDR Header Parsing](#nrrd--nhdr-header-parsing)
+10. [Configuration](#configuration)
+11. [Installation & Running](#installation--running)
+12. [How to Trigger a Conversion](#how-to-trigger-a-conversion)
+13. [Requirements](#requirements)
 
 ---
 
 ## Overview
 
-The **NG Data Conversion Pipeline** is a FastAPI-based orchestration and monitoring backend that manages the conversion of large raw binary volumetric brain scan files (`.raw`) into **OME-Zarr** multiresolution stores suitable for streaming visualisation in **Neuroglancer**.
+The **NG Data Conversion Pipeline & Tracking System** is a robust 5-component orchestration backend and UI suite. It manages the conversion of large raw binary volumetric brain scan files (`.raw`) into **OME-Zarr** multiresolution stores for streaming visualisation in **Neuroglancer**, while providing a database-backed job tracker and live monitoring dashboards.
 
-The system coordinates three external resources:
+The system coordinates four external/local resources:
 
 | Resource | Address | Role |
 |---|---|---|
 | **Raw Data Server** | `http://172.20.23.241:10228/` | Hosts unconverted `.raw` + `.nhdr` file pairs |
 | **Converted Data Server** | `http://172.20.23.241:10229/` | Hosts finished `.zarr` OME-Zarr stores |
-| **Pipeline API** | `http://172.20.23.217:10302/` | This FastAPI backend — orchestrates everything |
+| **Pipeline API** | `http://172.20.23.217:10302/` | FastAPI orchestration backend + Control Panel UI |
+| **Pipeline Database** | `http://172.20.23.217:10303/` | FastAPI SQLite job tracker + Dashboard UI |
 
 Key capabilities:
-- **Live file listing** from both HTTP servers via HTML directory-index parsing
-- **Cross-server status comparison** — identifies which raw files are already converted
-- **Automatic NHDR metadata parsing** — reads `.nhdr` sidecar headers to dynamically extract volume shape, dtype, and encoding for every file
-- **Background conversion jobs** — `POST /api/convert/{filename}` triggers `raw_converter.py` as a non-blocking subprocess and returns `202 Accepted` immediately
-- **Skeuomorphic control-panel UI** — a pure HTML/CSS homepage served at `/` with live iframe feeds of all API endpoints
+- **Live file listing** from HTTP servers via HTML directory-index parsing.
+- **Cross-server status comparison** identifying converted, converting, and pending files.
+- **Automatic NHDR metadata parsing** for dynamic volume shape, dtype, and encoding extraction.
+- **Background conversion jobs** triggered via API, running non-blocking subprocesses.
+- **Thread-safe caching** to prevent API timeouts during heavy multi-gigabyte file streaming.
+- **Dual Skeuomorphic / Dark Mode UIs** providing real-time conversion monitoring and database management.
 
 ---
 
@@ -52,55 +54,153 @@ Key capabilities:
 ```mermaid
 graph TB
     subgraph CLIENTS["Clients"]
-        UI["Control Panel UI<br/>(index.html + style.css)<br/>Pure HTML/CSS — No JS"]
-        DEV["Developer / Curl / Swagger"]
+        UI_Pipe["Control Panel UI<br/>(172.20.23.217:10302)<br/>Skeuomorphic HTML/CSS/JS"]
+        UI_Dash["DB Dashboard UI<br/>(172.20.23.217:10303)<br/>Dark-mode HTML/CSS/JS"]
     end
 
-    subgraph API["Pipeline API  ·  172.20.23.217:10302"]
+    subgraph API_PIPE["Pipeline API  ·  Port 10302"]
         direction TB
-        FASTAPI["FastAPI Application<br/>(main.py)"]
-        CORS["CORS Middleware<br/>allow_origins: *"]
-        STATIC["StaticFiles<br/>/static → project dir"]
-        PARSER["HTML Directory Parser<br/>BeautifulSoup4"]
-        NHDR_PARSE["NHDR Header Parser<br/>parse_nhdr_file()"]
-        BG["BackgroundTasks<br/>Thread Pool Worker"]
-        MODELS["Pydantic Models<br/>RawFilesResponse<br/>ConvertedFilesResponse<br/>FileStatusEntry<br/>NhdrMetadata<br/>ConversionTriggerResponse"]
+        FASTAPI_PIPE["FastAPI (main.py)"]
+        CACHE["Thread-Safe Cache<br/>_raw_files_cache<br/>_active_conversions"]
+        BG_PIPE["BackgroundTasks<br/>Worker Pool"]
     end
 
-    subgraph RAW_SERVER["Raw Data Server  ·  172.20.23.241:10228"]
-        RAW_DIR["HTTP Directory Index<br/>.raw + .nhdr file pairs"]
+    subgraph API_DB["Database API  ·  Port 10303"]
+        FASTAPI_DB["FastAPI (Database-api/main.py)"]
+        SQLITE["SQLite DB<br/>(pipeline.db)"]
     end
 
-    subgraph CONV_SERVER["Converted Data Server  ·  172.20.23.241:10229"]
-        ZARR_DIR["HTTP Directory Index<br/>.zarr OME-Zarr stores"]
+    subgraph RAW_SERVER["Raw Server  ·  10228"]
+        RAW_DIR["HTTP Index<br/>.raw + .nhdr"]
+    end
+
+    subgraph CONV_SERVER["Converted Server  ·  10229"]
+        ZARR_DIR["HTTP Index<br/>.zarr"]
     end
 
     subgraph LOCAL_FS["Local Filesystem"]
-        RAW_FILES["RAW_FILES_DIR<br/>/home/tahmeed/nvIndexViewer/brainStem<br/>*.raw  *.nhdr"]
-        OUT_DIR["OUTPUT_ZARR_DIR<br/>/home/tahmeed/nvIndexViewer/converted<br/>*.zarr"]
-        SCRIPT["raw_converter.py<br/>NHDR parser + OME-Zarr writer"]
+        RAW_FILES["RAW_FILES_DIR<br/>*.raw  *.nhdr"]
+        OUT_DIR["OUTPUT_ZARR_DIR<br/>*.zarr"]
+        SCRIPT["raw_converter.py<br/>Dask + Zarr engine"]
     end
 
-    UI -->|HTTP GET /| FASTAPI
-    UI -->|iframe feeds| FASTAPI
-    DEV -->|HTTP requests| FASTAPI
+    UI_Pipe -->|Polls /api/files/status| FASTAPI_PIPE
+    UI_Dash -->|CRUD operations| FASTAPI_DB
+    UI_Dash -->|POST /api/jobs/{id}/convert| FASTAPI_DB
 
-    FASTAPI --> CORS
-    FASTAPI --> STATIC
-    FASTAPI --> PARSER
-    FASTAPI --> NHDR_PARSE
-    FASTAPI --> BG
-    FASTAPI --> MODELS
+    FASTAPI_DB -->|1. GET /api/files/raw| FASTAPI_PIPE
+    FASTAPI_DB -->|2. POST /api/convert/{file}| FASTAPI_PIPE
+    FASTAPI_DB -->|Reads/Writes| SQLITE
 
-    PARSER -->|httpx async GET| RAW_SERVER
-    PARSER -->|httpx async GET| CONV_SERVER
-
-    NHDR_PARSE -->|reads| RAW_FILES
-
-    BG -->|subprocess.run| SCRIPT
-    SCRIPT -->|np.memmap reads| RAW_FILES
-    SCRIPT -->|write_image| OUT_DIR
+    FASTAPI_PIPE --> CACHE
+    FASTAPI_PIPE -->|Downloads| RAW_SERVER
+    FASTAPI_PIPE -->|Checks| CONV_SERVER
+    FASTAPI_PIPE --> BG_PIPE
+    BG_PIPE -->|subprocess.run| SCRIPT
+    
+    SCRIPT -->|Memmap reads| RAW_FILES
+    SCRIPT -->|Writes pyramid| OUT_DIR
 ```
+
+---
+
+## Project Structure
+
+```
+NG_data_conversion_pipeline/
+├── main.py               # FastAPI orchestration API — all endpoints, NHDR parser, background tasks,
+│                         # thread-safe conversion tracker, raw-files cache, static file serving
+├── raw_converter.py      # Standalone conversion engine — NHDR auto-discovery, np.memmap, Dask, OME-Zarr
+├── index.html            # Skeuomorphic control-panel homepage with live JS polling monitor
+├── style.css             # Skeuomorphic CSS — metal, CRT, LEDs, rivets
+├── favicon.png           # Pipeline favicon
+├── requirements.txt
+└── Database-api/
+    ├── main.py           # Database FastAPI app — SQLite job tracker, conversion trigger proxy
+    ├── index.html        # Dark-mode dashboard UI — job table, add form, modals
+    ├── pipeline.db       # SQLite database
+    └── WorkReport.md     # Developer work report
+```
+
+---
+
+## In-Memory Conversion Tracking & Cache
+
+During massive `.raw` file streams, simple downstream HTTP servers (like the Raw Data Server) get saturated and block directory-listing requests, leading to timeouts.
+
+To ensure uninterrupted API responses and UI monitoring, `main.py` implements a robust caching layer:
+
+- `_active_conversions: set` — Tracks filenames currently executing in the background worker. Added when `_run_conversion()` begins; discarded in the `finally` block.
+- `_raw_files_cache: List[str]` — Caches the last successful raw directory listing. Seeded with the converting filename and its `.nhdr` *before* the streaming download initiates.
+- **Lock Mechanisms:** Both structures are protected by `threading.Lock()` to prevent race conditions.
+- **Fallback Behaviour:** If `/api/files/raw` or `/api/files/status` encounter a `502 Bad Gateway` from the saturated raw server, they instantly fall back to the cache and inject the `_active_conversions` state.
+
+---
+
+## Control Panel UI Features (Port 10302)
+
+The main landing page is a highly immersive, skeuomorphic control console.
+
+- **Server Status Row:** 4 interactive cards (Raw Server, Pipeline API, Converted Data Server, Pipeline Database). Each features glowing LED indicators, host:port displays, and action buttons.
+- **Pipeline Database Card:** Features an amber LED and a 3-column symmetric layout with engraved metallic dividers.
+- **Live Conversion Monitor:** A central intelligence panel that polls `/api/files/status` every 10 seconds. It dynamically shifts between 3 states:
+  - **STATE 1 (converting):** Shows active files with an amber progress bar sweep, a cycling phase label (e.g., `NHDR SIDECAR DOWNLOAD` → `CHUNK MATRIX COMPUTE`), and a live `HH:MM:SS` elapsed clock.
+  - **STATE 2 (pending):** Displays `FILES QUEUED — AWAITING CONVERSION TRIGGER` with a dimmed amber LED when files exist on the server but are not processing.
+  - **STATE 3 (idle):** Displays `ALL FILES CONVERTED — PIPELINE IDLE` with a pulsing green LED.
+- **Monitor File Rows:** Individual files show explicit states: `CONVERTING` (🔴 blinking amber dot), `QUEUED` (⏳ grey text), or `CONVERTED` (✔ green check).
+- **CRT Monitors:** Twin iframe panels rendering real-time `raw` and `converted` API data, plus a full-width `status` cross-check panel.
+- **Conversion Control Station:** Features LCD endpoint URL readouts, key-value data displays, and direct links to metadata fetching and Swagger.
+- **Skeuomorphic Info Modal:** A stylish slide-down instruction manual overlay.
+
+---
+
+## Database Dashboard UI Features (Port 10303)
+
+The Database API serves a premium dark-themed management dashboard.
+
+- **Pipeline Monitor Banner:** Always-visible top banner linking back to the Control Panel (`10302`) with a live green indicator dot.
+- **Job Table:** Rich data grid displaying: ID, Brain Name, State (`pending conversion` / `processing` / `converted`), Date Processed, Algorithm, Version, URL, and Actions.
+- **Action Buttons:**
+  - `Convert` (Purple): Initiates the intelligent file-matching proxy to trigger actual data conversion.
+  - `Edit URL` (Amber): Opens a prompt to manually update the Neuroglancer URL path.
+  - `Cycle State` (Green): Manually rotates the job status.
+  - `Delete` (Red): Removes the job from the DB.
+- **Add Job Form:** Integrated form for registering new brain scans into the system.
+- **Instruction Modal:** First-visit onboarding modal (state saved in `localStorage`).
+- **Auto-Sorting:** Ensures active `processing` jobs remain at the top, pushing `converted` jobs to the bottom.
+
+---
+
+## API Endpoints Reference
+
+### Pipeline API (`http://172.20.23.217:10302`)
+
+| Method | Path | Tag | Description | Returns |
+|---|---|---|---|---|
+| `GET` | `/` | — | Skeuomorphic HTML control panel | `text/html` |
+| `GET` | `/api/files/raw` | Files | List files on the raw server. **Filtered to `.raw` and `.nhdr` only. Falls back to cache during active downloads.** | `{"raw_files": [...]}` |
+| `GET` | `/api/files/converted` | Files | List all files on the converted server | `{"converted_files": [...]}` |
+| `GET` | `/api/files/status` | Files | Cross-server status. **Filtered to `.raw` only. Returns `converting` for in-flight jobs. Falls back to cache when raw server is busy.** | `[{"filename", "status", "converted_url?"}]` |
+| `GET` | `/api/files/metadata/{file}`| Files | Parse NHDR for a raw file | `NhdrMetadata` object |
+| `POST` | `/api/convert/{file}` | Conversion | Trigger background conversion | `202 {"status":"processing", ...}` |
+
+### Database API (`http://172.20.23.217:10303/api/jobs/`)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/jobs/` | List all tracked jobs |
+| `POST` | `/api/jobs/` | Add a new job to the tracker |
+| `PUT` | `/api/jobs/{id}` | Update job metadata (state, URL, date, algorithm) |
+| `DELETE` | `/api/jobs/{id}` | Delete a job from the tracker |
+| `POST` | `/api/jobs/{id}/convert`| Triggers pipeline conversion for a job. Auto-matches the brain name to the exact `.raw` file (prioritising `_new`), updates DB to `processing`, and proxies to the Pipeline API. |
+
+### Error Responses
+
+| Code | When |
+|---|---|
+| `502 Bad Gateway` | Remote file server is unreachable. *(Note: `/api/files/raw` and `/api/files/status` now catch 502s and return cached data instead when the server is busy converting).* |
+| `404 Not Found` | No `.nhdr` sidecar file found. |
+| `422 Unprocessable` | `.nhdr` exists but contains malformed fields. |
 
 ---
 
@@ -138,238 +238,7 @@ flowchart TD
     P --> Q
     P -->|exit code ≠ 0| R
     F -->|> 3600s| TIMEOUT
-
-    style A fill:#1a3a22,color:#80ff99,stroke:#2a5535
-    style E fill:#1a2a3a,color:#88ccff,stroke:#224466
-    style Q fill:#1a3a22,color:#80ff99,stroke:#2a5535
-    style R fill:#3a1a1a,color:#ff9999,stroke:#662222
-    style TIMEOUT fill:#3a2a10,color:#ffcc77,stroke:#665522
-    style J fill:#3a1a1a,color:#ff9999,stroke:#662222
 ```
-
----
-
-## API Request Flow Diagram
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API as FastAPI (main.py)
-    participant RawSrv as Raw Server :10228
-    participant ConvSrv as Converted Server :10229
-    participant FS as Local Filesystem
-    participant Conv as raw_converter.py
-
-    Note over Client,Conv: GET /api/files/raw
-    Client->>API: GET /api/files/raw
-    API->>RawSrv: httpx GET http://172.20.23.241:10228/
-    RawSrv-->>API: HTML directory listing
-    API->>API: BeautifulSoup parse <a href>
-    API-->>Client: {"raw_files": ["file1.raw", ...]}
-
-    Note over Client,Conv: GET /api/files/status
-    Client->>API: GET /api/files/status
-    API->>RawSrv: httpx GET (async gather)
-    API->>ConvSrv: httpx GET (async gather)
-    RawSrv-->>API: raw listing HTML
-    ConvSrv-->>API: converted listing HTML
-    API->>API: Cross-reference sets → status
-    API-->>Client: [{"filename":"x.raw","status":"pending_conversion"}, ...]
-
-    Note over Client,Conv: GET /api/files/metadata/{filename}
-    Client->>API: GET /api/files/metadata/file.raw
-    API->>FS: Open file.nhdr (local disk)
-    FS-->>API: NHDR text content
-    API->>API: parse_nhdr_file() → shape, dtype, encoding
-    API-->>Client: {"numpy_shape":[706,20000,20000],"dtype":"uint8", ...}
-
-    Note over Client,Conv: POST /api/convert/{filename}
-    Client->>API: POST /api/convert/file.raw
-    API->>API: Resolve input/output/nhdr paths
-    API-->>Client: 202 {"status":"processing","nhdr_found":true,...}
-    Note right of API: Returns IMMEDIATELY
-    API->>Conv: subprocess.run(raw_converter.py --input ... --output ... --levels 4)
-    Conv->>FS: parse .nhdr → shape & dtype
-    Conv->>FS: np.memmap .raw file (zero RAM copy)
-    Conv->>Conv: da.from_array → Dask chunked array
-    Conv->>FS: zarr.storage.LocalStore → create .zarr
-    Conv->>Conv: Scaler(max_layer=4, method='nearest')
-    Conv->>FS: write_image → OME-Zarr pyramid levels 0–4
-    Conv-->>API: stdout/stderr captured → logged
-```
-
----
-
-## Project Structure
-
-```
-NG_data_conversion_pipeline/
-│
-├── main.py               # FastAPI application — all API endpoints, NHDR parser,
-│                         # background task runner, static file serving
-│
-├── raw_converter.py      # Standalone conversion engine
-│                         # NHDR auto-discovery · np.memmap · Dask · OME-Zarr writer
-│
-├── index.html            # Skeuomorphic control-panel homepage (pure HTML, no JS)
-│                         # Served at GET / by FastAPI
-│
-├── style.css             # Full skeuomorphic CSS
-│                         # Served at GET /static/style.css by FastAPI StaticFiles
-│
-└── requirements.txt      # Python dependencies
-```
-
----
-
-## Components
-
-### `main.py` — FastAPI Backend
-
-The central orchestration layer. Key responsibilities:
-
-#### Configuration Block (top of file)
-
-| Variable | Default | Description |
-|---|---|---|
-| `RAW_SERVER_URL` | `http://172.20.23.241:10228/` | Remote raw data HTTP server |
-| `CONVERTED_SERVER_URL` | `http://172.20.23.241:10229/` | Remote converted data HTTP server |
-| `CONVERSION_SCRIPT` | `raw_converter.py` (auto-resolved) | Absolute path to the conversion script |
-| `RAW_FILES_DIR` | `/home/tahmeed/nvIndexViewer/brainStem` | Local directory containing `.raw` + `.nhdr` pairs |
-| `OUTPUT_ZARR_DIR` | `/home/tahmeed/nvIndexViewer/converted` | Local directory where `.zarr` stores are written |
-| `PYRAMID_LEVELS` | `4` | Number of OME-Zarr downsampling levels |
-| `HTTP_TIMEOUT` | `10.0` seconds | Timeout for fetching remote directory listings |
-
-#### Internal Helpers
-
-| Function | Purpose |
-|---|---|
-| `_parse_directory_listing(html)` | BeautifulSoup parser for HTTP autoindex pages (works with Python `http.server`, Nginx, Apache) |
-| `_fetch_file_list(server_url)` | Async httpx fetcher — raises `HTTPException(502)` on network/server errors |
-| `_parse_nhdr_file(nhdr_path)` | NRRD header parser — extracts shape, dtype, encoding, data_file |
-| `_run_conversion(filename)` | Background task — resolves paths, calls `raw_converter.py` via subprocess, logs all output |
-
----
-
-### `raw_converter.py` — Conversion Engine
-
-A fully self-contained CLI script that can be called standalone or from the API.
-
-#### Auto-Discovery Logic
-
-When `--input file.raw` is provided, the script automatically looks for `file.nhdr` in the same directory. If found, volume parameters are parsed from it. CLI flags (`--shape`, `--dtype`, `--chunks`) can override any parsed value.
-
-#### Priority Order for Parameters
-
-```
-CLI flag  >  .nhdr parsed value  >  error (required — no defaults for shape/dtype)
-```
-
-#### NHDR → NumPy Shape Conversion
-
-NRRD stores dimensions in fastest-axis-first order `(X, Y, Z)`. NumPy/C-order requires slowest-axis-first `(Z, Y, X)`.
-
-```
-NHDR:   sizes: 20000 20000 706   →  (X=20000, Y=20000, Z=706)
-NumPy:  shape = tuple(reversed) →  (Z=706,   Y=20000, X=20000)
-```
-
-#### Supported NRRD Dtype Strings
-
-| NHDR `type` field | NumPy dtype |
-|---|---|
-| `unsigned char`, `uchar`, `uint8` | `uint8` |
-| `unsigned short`, `ushort`, `uint16` | `uint16` |
-| `unsigned int`, `uint`, `uint32` | `uint32` |
-| `short`, `int16` | `int16` |
-| `int`, `int32` | `int32` |
-| `float` | `float32` |
-| `double` | `float64` |
-
-#### Chunk Auto-Computation
-
-```python
-chunk_z = min(16,   Z)    # keeps Z slices manageable
-chunk_y = min(2048, Y)    # 2K tile in Y
-chunk_x = min(2048, X)    # 2K tile in X
-```
-
-#### CLI Usage
-
-```bash
-# Auto-reads paired .nhdr (recommended)
-python3 raw_converter.py \
-  --input  /data/brainStem/142_2dwarp_img_4mpp_new.raw \
-  --output /data/converted/142_2dwarp_img_4mpp_new.zarr
-
-# With explicit overrides
-python3 raw_converter.py \
-  --input  /data/brainStem/file.raw \
-  --output /data/converted/file.zarr \
-  --shape  706,20000,20000 \
-  --dtype  uint8 \
-  --chunks 16,2048,2048 \
-  --levels 4
-```
-
----
-
-### `index.html` + `style.css` — Control Panel UI
-
-A **pure HTML/CSS** skeuomorphic dashboard — zero JavaScript. Served by FastAPI at `GET /`.
-
-**Served at:** `http://172.20.23.217:10302/`
-
-#### UI Sections
-
-| Section | Content |
-|---|---|
-| **Brushed Aluminium Header** | Pipeline name, pulsing LED indicators, corner rivets |
-| **Server Status Row** | Three server cards (Raw → API → Converted) with large LED indicators, host:port display, and direct server browse buttons |
-| **Raw Files Monitor** | CRT-style iframe panel showing live `GET /api/files/raw` feed |
-| **Converted Files Monitor** | CRT-style iframe panel showing live `GET /api/files/converted` feed |
-| **Status Overview Monitor** | Full-width CRT panel showing live `GET /api/files/status` cross-server comparison |
-| **Conversion Control Station** | LCD readout display, key-value readout panel, metadata check button, Swagger trigger button |
-| **API Endpoint Console** | Physical button grid linking to all seven API endpoints |
-| **Footer** | Version info, rivet details |
-
-#### CSS Skeuomorphic Techniques
-
-| Effect | CSS Technique |
-|---|---|
-| Brushed metal | `repeating-linear-gradient` horizontal striations |
-| 3D panel depth | Multi-layer `box-shadow` (outer bevel + groove + drop) |
-| Sunken insets | `box-shadow: inset` with high opacity |
-| LED glow | `radial-gradient` bulb + `box-shadow` outer glow + `@keyframes` pulse |
-| Embossed text | `background-clip: text` metallic gradient |
-| CRT scanlines | `repeating-linear-gradient` overlay pseudo-element |
-| Glass glare | Semi-transparent `linear-gradient` positioned div |
-| Push buttons | `transform: translateY(2px)` on `:active` + depth shadow collapse |
-| Rivets | `radial-gradient` sphere illusion |
-
----
-
-## API Endpoints Reference
-
-| Method | Path | Tag | Description | Returns |
-|---|---|---|---|---|
-| `GET` | `/` | — | Skeuomorphic HTML homepage | `text/html` |
-| `GET` | `/api/files/raw` | Files | List all files on the raw server | `{"raw_files": [...]}` |
-| `GET` | `/api/files/converted` | Files | List all files on the converted server | `{"converted_files": [...]}` |
-| `GET` | `/api/files/status` | Files | Cross-server status per raw file | `[{"filename", "status", "converted_url?"}]` |
-| `GET` | `/api/files/metadata/{filename}` | Files | Parse NHDR for a raw file | `NhdrMetadata` object |
-| `POST` | `/api/convert/{filename}` | Conversion | Trigger background conversion | `202 {"status":"processing", ...}` |
-| `GET` | `/health` | Health | Liveness probe | `{"status":"healthy"}` |
-| `GET` | `/docs` | — | Swagger interactive UI | `text/html` |
-| `GET` | `/redoc` | — | ReDoc API reference | `text/html` |
-
-### Error Responses
-
-| Code | When |
-|---|---|
-| `502 Bad Gateway` | Remote file server (`:10228` or `:10229`) is unreachable or returns non-2xx |
-| `404 Not Found` | No `.nhdr` sidecar file found for the requested filename |
-| `422 Unprocessable Entity` | `.nhdr` file exists but contains malformed or unknown fields |
 
 ---
 
@@ -378,8 +247,6 @@ A **pure HTML/CSS** skeuomorphic dashboard — zero JavaScript. Served by FastAP
 Each `.raw` binary file is paired with a `.nhdr` NRRD detached header file of the same stem. Example:
 
 ```
-# File: 142_2dwarp_img_4mpp_new.nhdr
-
 NRRD0004
 type: unsigned char
 dimension: 3
@@ -392,128 +259,66 @@ space origin: (0,0,0)
 data file: 142_2dwarp_img_4mpp_new.raw
 ```
 
-**Parsed results for the above:**
+**Parsed results:**
 
 | Field | Raw value | Interpreted as |
 |---|---|---|
 | `type` | `unsigned char` | `numpy.dtype('uint8')` |
 | `sizes` | `20000 20000 706` | NRRD X,Y,Z order |
 | numpy shape | reversed | `(706, 20000, 20000)` — Z,Y,X |
-| `encoding` | `raw` | Direct binary read |
 | auto chunks | computed | `(16, 2048, 2048)` |
 
 > [!IMPORTANT]
-> The `sizes` field in NRRD is always in **fastest-axis-first** order `(X, Y, Z)`.
-> NumPy requires **slowest-axis-first** `(Z, Y, X)`.
-> The parsers in both `main.py` and `raw_converter.py` handle this reversal automatically.
+> The `sizes` field in NRRD is always **fastest-axis-first** `(X, Y, Z)`. NumPy requires **slowest-axis-first** `(Z, Y, X)`. The parsers handle this reversal automatically.
 
 ---
 
 ## Configuration
 
-All configuration lives at the **top of `main.py`**. No `.env` file is required for basic operation.
+Configuration is located at the top of `main.py`.
 
 ```python
 # Remote servers
 RAW_SERVER_URL       = "http://172.20.23.241:10228/"
 CONVERTED_SERVER_URL = "http://172.20.23.241:10229/"
 
-# Local paths  ← UPDATE THESE for your system
-RAW_FILES_DIR  = "/home/tahmeed/nvIndexViewer/brainStem"
+# Local paths
+RAW_FILES_DIR   = "/home/tahmeed/nvIndexViewer/brainStem"
 OUTPUT_ZARR_DIR = "/home/tahmeed/nvIndexViewer/converted"
 
-# Conversion defaults
-PYRAMID_LEVELS = 4     # OME-Zarr pyramid downsampling levels
-HTTP_TIMEOUT   = 10.0  # Seconds before server fetch times out
+# Defaults
+PYRAMID_LEVELS = 4
+HTTP_TIMEOUT   = 10.0
 ```
-
-> [!TIP]
-> If converted filenames differ from raw filenames (e.g. a suffix is appended), update the `is_converted` check inside `file_status()` in `main.py`:
-> ```python
-> is_converted = f"{stem}_converted.zarr" in converted_set
-> ```
 
 ---
 
 ## Installation & Running
 
-### 1. Clone / enter the project directory
-
 ```bash
+# 1. Clone & install
 cd NG_data_conversion_pipeline
-```
-### 2. Create Virtual environment(optional)
-```bash
-python3.12 -m venv venv
-#python version must be more than 3.11
-source venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
 pip install -r requirements.txt
-```
 
-### 4. Start the API server
-
-```bash
+# 2. Start Pipeline API
 uvicorn main:app --host 0.0.0.0 --port 8002 --reload
+
+# 3. Start Database API
+cd Database-api
+uvicorn main:app --host 0.0.0.0 --port 8003 --reload
 ```
-
-| Flag | Purpose |
-|---|---|
-| `--host 0.0.0.0` | Listen on all interfaces (required for network access) |
-| `--port 10302` | Port number |
-| `--reload` | Auto-restart on file changes (development only) |
-
-### 4. Open the control panel
-
-Navigate to: **`http://172.20.23.217:10302/`**
-
-Or the Swagger UI: **`http://172.20.23.217:10302/docs`**
 
 ---
 
 ## How to Trigger a Conversion
 
-### Option A — Swagger UI (recommended for one-off)
+### Option A — Database Dashboard (Recommended)
+1. Navigate to `http://172.20.23.217:10303/`
+2. Click **Convert** on any pending job row.
 
-1. Open `http://172.20.23.217:10302/docs`
-2. Expand `POST /api/convert/{filename}`
-3. Click **Try it out**
-4. Enter the filename, e.g. `142_2dwarp_img_4mpp_new.raw`
-5. Click **Execute**
-6. You will receive a `202 Accepted` response immediately
-
-### Option B — curl
-
-```bash
-curl -X POST "http://172.20.23.217:10302/api/convert/142_2dwarp_img_4mpp_new.raw"
-```
-
-### Option C — Verify metadata first, then convert
-
-```bash
-# Step 1: Check NHDR metadata
-curl http://172.20.23.217:10302/api/files/metadata/142_2dwarp_img_4mpp_new.raw
-
-# Step 2: Trigger conversion
-curl -X POST http://172.20.23.217:10302/api/convert/142_2dwarp_img_4mpp_new.raw
-```
-
-### Monitor conversion progress
-
-Conversion logs stream to the uvicorn console. Look for:
-
-```
-[CONVERSION] ▶  Starting: 142_2dwarp_img_4mpp_new.raw
-[CONVERSION] Command: python3 /path/raw_converter.py --input ... --output ... --levels 4
-[CONVERSION] ✅ Completed: 142_2dwarp_img_4mpp_new.raw
-```
-
-> [!WARNING]
-> Large volumes (e.g. 20000×20000×706 at uint8) will take significant time and disk space. The subprocess timeout is set to **3600 seconds (1 hour)**. Adjust `timeout=3600` in `_run_conversion()` inside `main.py` if needed.
+### Option B — Pipeline Swagger UI
+1. Navigate to `http://172.20.23.217:10302/docs`
+2. Use the `POST /api/convert/{filename}` endpoint directly.
 
 ---
 
@@ -529,13 +334,5 @@ numpy>=1.26.0
 dask[array]>=2024.1.0
 zarr>=2.18.0
 ome-zarr>=0.9.0
+sqlalchemy>=2.0.0
 ```
-
----
-
-## Developer
-
-**Tahmeed Ahmad**
-
-*NG Data Conversion Pipeline — Orchestration & Monitoring Backend*
-*Built with FastAPI · Dask · OME-Zarr · Pure HTML/CSS Skeuomorphic UI*
